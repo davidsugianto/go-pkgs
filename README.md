@@ -40,6 +40,15 @@ go get github.com/davidsugianto/go-pkgs/pagination
 
 [📖 Documentation](./pagination/README.md) | [💡 Example](./pagination/example/)
 
+#### `config` - Configuration Loader
+Type-safe configuration loader with JSON and YAML support. Features automatic format detection, generics for type safety, and support for nested structures.
+
+```bash
+go get github.com/davidsugianto/go-pkgs/config
+```
+
+[📖 Documentation](./config/README.md) | [💡 Example](./config/example/)
+
 ### 🚧 Planned
 
 #### `logger`  
@@ -51,8 +60,8 @@ Wrapper around `go-redis` with helper methods for caching and connection handlin
 #### `httpserver`  
 Graceful HTTP server with middleware support (logging, recovery, health checks).  
 
-#### `config`  
-Configuration loader supporting `.env`, JSON, and YAML with environment overrides.  
+#### `config` (`.env` support)  
+Add `.env` file support and environment variable overrides to the config package.  
 
 #### `db`  
 Database connector wrapper for PostgreSQL/MySQL with migration support.  
@@ -87,10 +96,11 @@ cd go-pkgs
   - [x] Implement `grace` with graceful HTTP server shutdown  
   - [x] Implement `httpclient` with automatic JSON serialization and context support  
   - [x] Implement `pagination` with offset/limit calculation and total pages
+  - [x] Implement `config` loader with JSON and YAML support
   - [ ] Implement `logger` with leveled and structured logging  
   - [ ] Implement `redis` wrapper with connection pool and helper methods  
   - [ ] Implement `httpserver` with graceful shutdown and middleware support  
-  - [ ] Implement `config` loader with `.env`, JSON, and YAML support  
+  - [ ] Add `.env` file support to `config` package  
   - [ ] Implement `db` connector with migrations support  
   - [ ] Implement `response` utilities for consistent API responses  
   - [ ] Implement `workerpool` with job queue and concurrency control  
@@ -101,12 +111,14 @@ cd go-pkgs
   - [x] Add usage examples for `grace` package  
   - [x] Add usage examples for `httpclient` package  
   - [x] Add usage examples for `pagination` package
+  - [x] Add usage examples for `config` package
   - [ ] Provide a sample microservice using multiple packages  
 
 - [x] **Testing & Quality**
   - [x] Add unit tests for `grace` package  
   - [x] Add unit tests for `httpclient` package  
   - [x] Add unit tests for `pagination` package
+  - [x] Add unit tests for `config` package
   - [ ] Add integration tests (Redis, DB, HTTP server)  
   - [ ] Add CI pipeline with GitHub Actions (`go test ./...`, lint, vet)  
   - [ ] Add Go Report Card and Coverage badge  
@@ -121,6 +133,7 @@ cd go-pkgs
   - [x] Write README for `grace` package  
   - [x] Write README for `httpclient` package  
   - [x] Write README for `pagination` package
+  - [x] Write README for `config` package
   - [ ] Write package-level docs with `godoc` examples  
   - [ ] Add contribution guide (`CONTRIBUTING.md`)  
   - [ ] Add code of conduct (`CODE_OF_CONDUCT.md`)  
