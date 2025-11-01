@@ -31,6 +31,15 @@ go get github.com/davidsugianto/go-pkgs/httpclient
 
 [📖 Documentation](./httpclient/README.md) | [💡 Example](./httpclient/example/)
 
+#### `pagination` - Pagination Helper
+A lightweight pagination package that helps you handle pagination logic with default values, offset/limit calculation, and total pages.
+
+```bash
+go get github.com/davidsugianto/go-pkgs/pagination
+```
+
+[📖 Documentation](./pagination/README.md) | [💡 Example](./pagination/example/)
+
 ### 🚧 Planned
 
 #### `logger`  
@@ -77,6 +86,7 @@ cd go-pkgs
 - [x] **Core Packages**
   - [x] Implement `grace` with graceful HTTP server shutdown  
   - [x] Implement `httpclient` with automatic JSON serialization and context support  
+  - [x] Implement `pagination` with offset/limit calculation and total pages
   - [ ] Implement `logger` with leveled and structured logging  
   - [ ] Implement `redis` wrapper with connection pool and helper methods  
   - [ ] Implement `httpserver` with graceful shutdown and middleware support  
@@ -90,11 +100,13 @@ cd go-pkgs
 - [x] **Examples**
   - [x] Add usage examples for `grace` package  
   - [x] Add usage examples for `httpclient` package  
+  - [x] Add usage examples for `pagination` package
   - [ ] Provide a sample microservice using multiple packages  
 
 - [x] **Testing & Quality**
   - [x] Add unit tests for `grace` package  
   - [x] Add unit tests for `httpclient` package  
+  - [x] Add unit tests for `pagination` package
   - [ ] Add integration tests (Redis, DB, HTTP server)  
   - [ ] Add CI pipeline with GitHub Actions (`go test ./...`, lint, vet)  
   - [ ] Add Go Report Card and Coverage badge  
@@ -108,6 +120,7 @@ cd go-pkgs
 - [x] **Documentation**
   - [x] Write README for `grace` package  
   - [x] Write README for `httpclient` package  
+  - [x] Write README for `pagination` package
   - [ ] Write package-level docs with `godoc` examples  
   - [ ] Add contribution guide (`CONTRIBUTING.md`)  
   - [ ] Add code of conduct (`CODE_OF_CONDUCT.md`)  
