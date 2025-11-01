@@ -1,0 +1,22 @@
+{
+  "app_name": "my-app",
+  "port": 8080,
+  "debug": true,
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "username": "admin",
+    "password": "secret123"
+  },
+  "endpoints": [
+    "/api/v1",
+    "/api/v2",
+    "/health"
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "environment": "development",
+    "author": "go-pkgs"
+  }
+}
+
