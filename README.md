@@ -67,10 +67,16 @@ go get github.com/davidsugianto/go-pkgs/redis
 
 [📖 Documentation](./redis/README.md) | [💡 Example](./redis/example/)
 
-### 🚧 Planned
+#### `logger` - Structured Logging with OpenTelemetry Integration
+A structured logging package built on zerolog with automatic OpenTelemetry span context correlation. Provides high-performance, zero-allocation JSON logging with seamless integration for observability platforms like Grafana and Loki.
 
-#### `logger`  
-Structured logging with log level support and optional JSON format.  
+```bash
+go get github.com/davidsugianto/go-pkgs/logger
+```
+
+[📖 Documentation](./logger/README.md) | [💡 Example](./logger/example/)
+
+### 🚧 Planned
 
 #### `httpserver`  
 Graceful HTTP server with middleware support (logging, recovery, health checks).  
@@ -111,7 +117,7 @@ cd go-pkgs
   - [x] Implement `config` loader with JSON and YAML support
   - [x] Implement `response` utilities for consistent API responses
   - [x] Implement `redis` wrapper with connection pool and helper methods  
-  - [ ] Implement `logger` with leveled and structured logging  
+  - [x] Implement `logger` with OpenTelemetry integration and structured logging  
   - [ ] Implement `httpserver` with graceful shutdown and middleware support  
   - [ ] Add `.env` file support to `config` package  
   - [ ] Implement `db` connector with migrations support  
@@ -126,6 +132,7 @@ cd go-pkgs
   - [x] Add usage examples for `config` package
   - [x] Add usage examples for `response` package
   - [x] Add usage examples for `redis` package
+  - [x] Add usage examples for `logger` package
   - [ ] Provide a sample microservice using multiple packages  
 
 - [x] **Testing & Quality**
@@ -135,6 +142,7 @@ cd go-pkgs
   - [x] Add unit tests for `config` package
   - [x] Add unit tests for `response` package
   - [x] Add unit tests for `redis` package
+  - [x] Add unit tests for `logger` package
   - [ ] Add integration tests (Redis, DB, HTTP server)  
   - [ ] Add CI pipeline with GitHub Actions (`go test ./...`, lint, vet)  
   - [ ] Add Go Report Card and Coverage badge  
@@ -152,6 +160,7 @@ cd go-pkgs
   - [x] Write README for `config` package
   - [x] Write README for `response` package
   - [x] Write README for `redis` package
+  - [x] Write README for `logger` package
   - [ ] Write package-level docs with `godoc` examples  
   - [ ] Add contribution guide (`CONTRIBUTING.md`)  
   - [ ] Add code of conduct (`CODE_OF_CONDUCT.md`)  
