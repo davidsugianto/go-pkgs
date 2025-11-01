@@ -11,31 +11,53 @@ A collection of reusable Golang packages for building modern backend services.
 
 ## 📂 Modules
 
-### 1. `pkg/logger`  
+### ✅ Implemented
+
+#### `grace` - Graceful HTTP Server Shutdown
+Drop-in replacement for `http.ListenAndServe` with graceful shutdown handling. Works with any framework (Gin, Echo, standard library, etc.).
+
+```bash
+go get github.com/davidsugianto/go-pkgs/grace
+```
+
+[📖 Documentation](./grace/README.md) | [💡 Example](./grace/example/)
+
+#### `httpclient` - Simple & Powerful HTTP Client
+Lightweight HTTP client wrapper with automatic JSON serialization, context support, and flexible configuration.
+
+```bash
+go get github.com/davidsugianto/go-pkgs/httpclient
+```
+
+[📖 Documentation](./httpclient/README.md) | [💡 Example](./httpclient/example/)
+
+### 🚧 Planned
+
+#### `logger`  
 Structured logging with log level support and optional JSON format.  
 
-### 2. `pkg/redis`  
+#### `redis`  
 Wrapper around `go-redis` with helper methods for caching and connection handling.  
 
-### 3. `pkg/httpserver`  
+#### `httpserver`  
 Graceful HTTP server with middleware support (logging, recovery, health checks).  
 
-### 4. `pkg/config`  
+#### `config`  
 Configuration loader supporting `.env`, JSON, and YAML with environment overrides.  
 
-### 5. `pkg/db`  
+#### `db`  
 Database connector wrapper for PostgreSQL/MySQL with migration support.  
 
-### 6. `pkg/response`  
+#### `response`  
 Standard API response format (`code, data, error`) with JSON writer helpers.  
 
-### 7. `pkg/workerpool`  
+#### `workerpool`  
 Goroutine worker pool with configurable concurrency and graceful shutdown.  
 
-### 8. `pkg/ratelimiter`  
+#### `ratelimiter`  
 In-memory or Redis-based rate limiter using token bucket / leaky bucket.  
 
-### 9. `pkg/auth/jwt`  
+#### `auth/jwt`  
 JWT authentication helpers for token generation, validation, and middleware.  
 
 ## 🛠 Getting Started  
@@ -52,7 +74,9 @@ cd go-pkgs
 
 ## 📌 Roadmap  
 
-- [ ] **Core Packages**
+- [x] **Core Packages**
+  - [x] Implement `grace` with graceful HTTP server shutdown  
+  - [x] Implement `httpclient` with automatic JSON serialization and context support  
   - [ ] Implement `logger` with leveled and structured logging  
   - [ ] Implement `redis` wrapper with connection pool and helper methods  
   - [ ] Implement `httpserver` with graceful shutdown and middleware support  
@@ -63,23 +87,27 @@ cd go-pkgs
   - [ ] Implement `ratelimiter` with in-memory and Redis support  
   - [ ] Implement `auth/jwt` for token generation and validation  
 
-- [ ] **Examples**
-  - [ ] Add usage examples for each package under `examples/`  
+- [x] **Examples**
+  - [x] Add usage examples for `grace` package  
+  - [x] Add usage examples for `httpclient` package  
   - [ ] Provide a sample microservice using multiple packages  
 
-- [ ] **Testing & Quality**
-  - [ ] Add unit tests for all modules  
+- [x] **Testing & Quality**
+  - [x] Add unit tests for `grace` package  
+  - [x] Add unit tests for `httpclient` package  
   - [ ] Add integration tests (Redis, DB, HTTP server)  
   - [ ] Add CI pipeline with GitHub Actions (`go test ./...`, lint, vet)  
   - [ ] Add Go Report Card and Coverage badge  
 
 - [ ] **Enhancements**
-  - [ ] Add gRPC server wrapper (`pkg/grpcserver`)  
-  - [ ] Add metrics exporter with Prometheus (`pkg/metrics`)  
+  - [ ] Add gRPC server wrapper  
+  - [ ] Add metrics exporter with Prometheus  
   - [ ] Add distributed tracing middleware with OpenTelemetry  
-  - [ ] Add caching abstraction (`pkg/cache`)  
+  - [ ] Add caching abstraction  
 
-- [ ] **Documentation**
+- [x] **Documentation**
+  - [x] Write README for `grace` package  
+  - [x] Write README for `httpclient` package  
   - [ ] Write package-level docs with `godoc` examples  
   - [ ] Add contribution guide (`CONTRIBUTING.md`)  
   - [ ] Add code of conduct (`CODE_OF_CONDUCT.md`)  
