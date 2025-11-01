@@ -58,13 +58,19 @@ go get github.com/davidsugianto/go-pkgs/response
 
 [📖 Documentation](./response/README.md) | [💡 Example](./response/example/)
 
+#### `redis` - Go-Redis Wrapper
+A lightweight wrapper around `go-redis` with helper methods for caching and connection handling. Provides a simple, idiomatic API for Redis operations including strings, hashes, lists, sets, sorted sets, and JSON serialization.
+
+```bash
+go get github.com/davidsugianto/go-pkgs/redis
+```
+
+[📖 Documentation](./redis/README.md) | [💡 Example](./redis/example/)
+
 ### 🚧 Planned
 
 #### `logger`  
 Structured logging with log level support and optional JSON format.  
-
-#### `redis`  
-Wrapper around `go-redis` with helper methods for caching and connection handling.  
 
 #### `httpserver`  
 Graceful HTTP server with middleware support (logging, recovery, health checks).  
@@ -104,8 +110,8 @@ cd go-pkgs
   - [x] Implement `pagination` with offset/limit calculation and total pages
   - [x] Implement `config` loader with JSON and YAML support
   - [x] Implement `response` utilities for consistent API responses
+  - [x] Implement `redis` wrapper with connection pool and helper methods  
   - [ ] Implement `logger` with leveled and structured logging  
-  - [ ] Implement `redis` wrapper with connection pool and helper methods  
   - [ ] Implement `httpserver` with graceful shutdown and middleware support  
   - [ ] Add `.env` file support to `config` package  
   - [ ] Implement `db` connector with migrations support  
@@ -119,6 +125,7 @@ cd go-pkgs
   - [x] Add usage examples for `pagination` package
   - [x] Add usage examples for `config` package
   - [x] Add usage examples for `response` package
+  - [x] Add usage examples for `redis` package
   - [ ] Provide a sample microservice using multiple packages  
 
 - [x] **Testing & Quality**
@@ -127,6 +134,7 @@ cd go-pkgs
   - [x] Add unit tests for `pagination` package
   - [x] Add unit tests for `config` package
   - [x] Add unit tests for `response` package
+  - [x] Add unit tests for `redis` package
   - [ ] Add integration tests (Redis, DB, HTTP server)  
   - [ ] Add CI pipeline with GitHub Actions (`go test ./...`, lint, vet)  
   - [ ] Add Go Report Card and Coverage badge  
@@ -143,6 +151,7 @@ cd go-pkgs
   - [x] Write README for `pagination` package
   - [x] Write README for `config` package
   - [x] Write README for `response` package
+  - [x] Write README for `redis` package
   - [ ] Write package-level docs with `godoc` examples  
   - [ ] Add contribution guide (`CONTRIBUTING.md`)  
   - [ ] Add code of conduct (`CODE_OF_CONDUCT.md`)  
