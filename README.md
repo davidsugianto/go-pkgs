@@ -49,6 +49,15 @@ go get github.com/davidsugianto/go-pkgs/config
 
 [📖 Documentation](./config/README.md) | [💡 Example](./config/example/)
 
+#### `response` - Consistent API Response Utilities
+A lightweight package for creating consistent JSON API responses with a standard format (`code`, `data`, `error`). Provides convenient helper functions for common HTTP status codes.
+
+```bash
+go get github.com/davidsugianto/go-pkgs/response
+```
+
+[📖 Documentation](./response/README.md) | [💡 Example](./response/example/)
+
 ### 🚧 Planned
 
 #### `logger`  
@@ -65,9 +74,6 @@ Add `.env` file support and environment variable overrides to the config package
 
 #### `db`  
 Database connector wrapper for PostgreSQL/MySQL with migration support.  
-
-#### `response`  
-Standard API response format (`code, data, error`) with JSON writer helpers.  
 
 #### `workerpool`  
 Goroutine worker pool with configurable concurrency and graceful shutdown.  
@@ -97,12 +103,12 @@ cd go-pkgs
   - [x] Implement `httpclient` with automatic JSON serialization and context support  
   - [x] Implement `pagination` with offset/limit calculation and total pages
   - [x] Implement `config` loader with JSON and YAML support
+  - [x] Implement `response` utilities for consistent API responses
   - [ ] Implement `logger` with leveled and structured logging  
   - [ ] Implement `redis` wrapper with connection pool and helper methods  
   - [ ] Implement `httpserver` with graceful shutdown and middleware support  
   - [ ] Add `.env` file support to `config` package  
   - [ ] Implement `db` connector with migrations support  
-  - [ ] Implement `response` utilities for consistent API responses  
   - [ ] Implement `workerpool` with job queue and concurrency control  
   - [ ] Implement `ratelimiter` with in-memory and Redis support  
   - [ ] Implement `auth/jwt` for token generation and validation  
@@ -112,6 +118,7 @@ cd go-pkgs
   - [x] Add usage examples for `httpclient` package  
   - [x] Add usage examples for `pagination` package
   - [x] Add usage examples for `config` package
+  - [x] Add usage examples for `response` package
   - [ ] Provide a sample microservice using multiple packages  
 
 - [x] **Testing & Quality**
@@ -119,6 +126,7 @@ cd go-pkgs
   - [x] Add unit tests for `httpclient` package  
   - [x] Add unit tests for `pagination` package
   - [x] Add unit tests for `config` package
+  - [x] Add unit tests for `response` package
   - [ ] Add integration tests (Redis, DB, HTTP server)  
   - [ ] Add CI pipeline with GitHub Actions (`go test ./...`, lint, vet)  
   - [ ] Add Go Report Card and Coverage badge  
@@ -134,6 +142,7 @@ cd go-pkgs
   - [x] Write README for `httpclient` package  
   - [x] Write README for `pagination` package
   - [x] Write README for `config` package
+  - [x] Write README for `response` package
   - [ ] Write package-level docs with `godoc` examples  
   - [ ] Add contribution guide (`CONTRIBUTING.md`)  
   - [ ] Add code of conduct (`CODE_OF_CONDUCT.md`)  
