@@ -76,6 +76,15 @@ go get github.com/davidsugianto/go-pkgs/logger
 
 [📖 Documentation](./logger/README.md) | [💡 Example](./logger/example/)
 
+#### `otel` - OpenTelemetry Integration
+A comprehensive OpenTelemetry integration package providing unified configuration for distributed tracing, metrics, and logging. Features selective enablement, method chaining API, trace-aware logging, and graceful shutdown.
+
+```bash
+go get github.com/davidsugianto/go-pkgs/otel
+```
+
+[📖 Documentation](./otel/README.md) | [💡 Example](./otel/example/)
+
 ### 🚧 Planned
 
 #### `httpserver`  
@@ -118,6 +127,7 @@ cd go-pkgs
   - [x] Implement `response` utilities for consistent API responses
   - [x] Implement `redis` wrapper with connection pool and helper methods  
   - [x] Implement `logger` with OpenTelemetry integration and structured logging  
+  - [x] Implement `otel` with unified OpenTelemetry configuration for tracing, metrics, and logging
   - [ ] Implement `httpserver` with graceful shutdown and middleware support  
   - [ ] Add `.env` file support to `config` package  
   - [ ] Implement `db` connector with migrations support  
@@ -133,6 +143,7 @@ cd go-pkgs
   - [x] Add usage examples for `response` package
   - [x] Add usage examples for `redis` package
   - [x] Add usage examples for `logger` package
+  - [x] Add usage examples for `otel` package
   - [ ] Provide a sample microservice using multiple packages  
 
 - [x] **Testing & Quality**
@@ -143,6 +154,7 @@ cd go-pkgs
   - [x] Add unit tests for `response` package
   - [x] Add unit tests for `redis` package
   - [x] Add unit tests for `logger` package
+  - [x] Add unit tests for `otel` package
   - [ ] Add integration tests (Redis, DB, HTTP server)  
   - [ ] Add CI pipeline with GitHub Actions (`go test ./...`, lint, vet)  
   - [ ] Add Go Report Card and Coverage badge  
@@ -150,8 +162,8 @@ cd go-pkgs
 - [ ] **Enhancements**
   - [ ] Add gRPC server wrapper  
   - [ ] Add metrics exporter with Prometheus  
-  - [ ] Add distributed tracing middleware with OpenTelemetry  
-  - [ ] Add caching abstraction  
+  - [x] Add distributed tracing middleware with OpenTelemetry  
+  - [ ] Add caching abstraction
 
 - [x] **Documentation**
   - [x] Write README for `grace` package  
@@ -161,6 +173,7 @@ cd go-pkgs
   - [x] Write README for `response` package
   - [x] Write README for `redis` package
   - [x] Write README for `logger` package
+  - [x] Write README for `otel` package
   - [ ] Write package-level docs with `godoc` examples  
   - [ ] Add contribution guide (`CONTRIBUTING.md`)  
   - [ ] Add code of conduct (`CODE_OF_CONDUCT.md`)  
