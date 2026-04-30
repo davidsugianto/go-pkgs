@@ -50,7 +50,7 @@ go get github.com/davidsugianto/go-pkgs/config
 [📖 Documentation](./config/README.md) | [💡 Example](./config/example/)
 
 #### `response` - Consistent API Response Utilities
-A lightweight package for creating consistent JSON API responses with a standard format (`code`, `data`, `error`). Provides convenient helper functions for common HTTP status codes.
+A lightweight package for creating consistent JSON API responses with a standard format (`code`, `data`, `error`). Provides convenient helper functions for common HTTP status codes. Includes built-in support for Gin framework.
 
 ```bash
 go get github.com/davidsugianto/go-pkgs/response
@@ -85,31 +85,37 @@ go get github.com/davidsugianto/go-pkgs/otel
 
 [📖 Documentation](./otel/README.md) | [💡 Example](./otel/example/)
 
+#### `db` - Database Package
+Multi-database support with GORM, automated migrations, and OpenTelemetry instrumentation. Supports PostgreSQL, MySQL, and MSSQL with connection pool metrics and embedded schema migrations.
+
+```bash
+go get github.com/davidsugianto/go-pkgs/db
+```
+
+[📖 Documentation](./db/README.md) | [💡 Example](./db/example/)
+
 ### 🚧 Planned
 
-#### `httpserver`  
-Graceful HTTP server with middleware support (logging, recovery, health checks).  
+#### `httpserver`
+Graceful HTTP server with middleware support (logging, recovery, health checks).
 
-#### `config` (`.env` support)  
-Add `.env` file support and environment variable overrides to the config package.  
+#### `config` (`.env` support)
+Add `.env` file support and environment variable overrides to the config package.
 
-#### `db`  
-Database connector wrapper for PostgreSQL/MySQL with migration support.  
+#### `workerpool`
+Goroutine worker pool with configurable concurrency and graceful shutdown.
 
-#### `workerpool`  
-Goroutine worker pool with configurable concurrency and graceful shutdown.  
+#### `ratelimiter`
+In-memory or Redis-based rate limiter using token bucket / leaky bucket.
 
-#### `ratelimiter`  
-In-memory or Redis-based rate limiter using token bucket / leaky bucket.  
+#### `auth/jwt`
+JWT authentication helpers for token generation, validation, and middleware.
 
-#### `auth/jwt`  
-JWT authentication helpers for token generation, validation, and middleware.  
+## 🛠 Getting Started
 
-## 🛠 Getting Started  
-
-### 1. Prerequisites  
-- Go 1.21+ installed → [Download Go](https://go.dev/dl/)  
-- (Optional) Docker & Docker Compose for running Redis/DB examples  
+### 1. Prerequisites
+- Go 1.23+ installed → [Download Go](https://go.dev/dl/)
+- (Optional) Docker & Docker Compose for running Redis/DB examples
 
 ### 2. Clone the Repository
 ```bash
@@ -117,66 +123,69 @@ git clone https://github.com/davidsugianto/go-pkgs.git
 cd go-pkgs
 ```
 
-## 📌 Roadmap  
+## 📌 Roadmap
 
 - [x] **Core Packages**
-  - [x] Implement `grace` with graceful HTTP server shutdown  
-  - [x] Implement `httpclient` with automatic JSON serialization and context support  
+  - [x] Implement `grace` with graceful HTTP server shutdown
+  - [x] Implement `httpclient` with automatic JSON serialization and context support
   - [x] Implement `pagination` with offset/limit calculation and total pages
   - [x] Implement `config` loader with JSON and YAML support
   - [x] Implement `response` utilities for consistent API responses
-  - [x] Implement `redis` wrapper with connection pool and helper methods  
-  - [x] Implement `logger` with OpenTelemetry integration and structured logging  
+  - [x] Implement `redis` wrapper with connection pool and helper methods
+  - [x] Implement `logger` with OpenTelemetry integration and structured logging
   - [x] Implement `otel` with unified OpenTelemetry configuration for tracing, metrics, and logging
-  - [ ] Implement `httpserver` with graceful shutdown and middleware support  
-  - [ ] Add `.env` file support to `config` package  
-  - [ ] Implement `db` connector with migrations support  
-  - [ ] Implement `workerpool` with job queue and concurrency control  
-  - [ ] Implement `ratelimiter` with in-memory and Redis support  
-  - [ ] Implement `auth/jwt` for token generation and validation  
+  - [x] Implement `db` connector with GORM, migrations, and OpenTelemetry support
+  - [ ] Implement `httpserver` with graceful shutdown and middleware support
+  - [ ] Add `.env` file support to `config` package
+  - [ ] Implement `workerpool` with job queue and concurrency control
+  - [ ] Implement `ratelimiter` with in-memory and Redis support
+  - [ ] Implement `auth/jwt` for token generation and validation
 
 - [x] **Examples**
-  - [x] Add usage examples for `grace` package  
-  - [x] Add usage examples for `httpclient` package  
+  - [x] Add usage examples for `grace` package
+  - [x] Add usage examples for `httpclient` package
   - [x] Add usage examples for `pagination` package
   - [x] Add usage examples for `config` package
   - [x] Add usage examples for `response` package
   - [x] Add usage examples for `redis` package
   - [x] Add usage examples for `logger` package
   - [x] Add usage examples for `otel` package
-  - [ ] Provide a sample microservice using multiple packages  
+  - [x] Add usage examples for `db` package
+  - [ ] Provide a sample microservice using multiple packages
 
 - [x] **Testing & Quality**
-  - [x] Add unit tests for `grace` package  
-  - [x] Add unit tests for `httpclient` package  
+  - [x] Add unit tests for `grace` package
+  - [x] Add unit tests for `httpclient` package
   - [x] Add unit tests for `pagination` package
   - [x] Add unit tests for `config` package
   - [x] Add unit tests for `response` package
   - [x] Add unit tests for `redis` package
   - [x] Add unit tests for `logger` package
   - [x] Add unit tests for `otel` package
-  - [ ] Add integration tests (Redis, DB, HTTP server)  
-  - [ ] Add CI pipeline with GitHub Actions (`go test ./...`, lint, vet)  
-  - [ ] Add Go Report Card and Coverage badge  
+  - [x] Add unit tests for `db` package
+  - [ ] Add integration tests (Redis, DB, HTTP server)
+  - [ ] Add CI pipeline with GitHub Actions (`go test ./...`, lint, vet)
+  - [ ] Add Go Report Card and Coverage badge
 
 - [ ] **Enhancements**
-  - [ ] Add gRPC server wrapper  
-  - [ ] Add metrics exporter with Prometheus  
-  - [x] Add distributed tracing middleware with OpenTelemetry  
+  - [ ] Add gRPC server wrapper
+  - [ ] Add metrics exporter with Prometheus
+  - [x] Add distributed tracing middleware with OpenTelemetry
   - [ ] Add caching abstraction
 
 - [x] **Documentation**
-  - [x] Write README for `grace` package  
-  - [x] Write README for `httpclient` package  
+  - [x] Write README for `grace` package
+  - [x] Write README for `httpclient` package
   - [x] Write README for `pagination` package
   - [x] Write README for `config` package
   - [x] Write README for `response` package
   - [x] Write README for `redis` package
   - [x] Write README for `logger` package
   - [x] Write README for `otel` package
-  - [ ] Write package-level docs with `godoc` examples  
-  - [ ] Add contribution guide (`CONTRIBUTING.md`)  
-  - [ ] Add code of conduct (`CODE_OF_CONDUCT.md`)  
+  - [x] Write README for `db` package
+  - [ ] Write package-level docs with `godoc` examples
+  - [ ] Add contribution guide (`CONTRIBUTING.md`)
+  - [ ] Add code of conduct (`CODE_OF_CONDUCT.md`)
 
 ## 📜 License
 
