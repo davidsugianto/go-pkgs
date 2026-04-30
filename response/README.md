@@ -33,7 +33,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 - ✅ **Type-Safe** - Helper functions for common HTTP status codes
 - ✅ **Simple API** - Clean, intuitive functions for all response types
 - ✅ **Flexible** - Support for custom status codes and messages
-- ✅ **Zero Dependencies** - Uses only standard library
+- ✅ **Zero Dependencies** - Uses only standard library (Gin support optional)
+- ✅ **Gin Framework** - Built-in support for Gin web framework (via build tag)
 
 ## Response Format
 
@@ -395,4 +396,108 @@ Then try the endpoints:
 - `GET http://localhost:8080/internal-error`
 - `GET http://localhost:8080/no-content`
 - `GET http://localhost:8080/custom`
+
+## Gin Framework Support
+
+The package includes built-in support for the [Gin](https://github.com/gin-gonic/gin) web framework. To use it, build your application with the `gin` build tag.
+
+### Installation
+
+```bash
+go get github.com/gin-gonic/gin
+```
+
+### Build with Gin Support
+
+```bash
+go build -tags=gin ./...
+```
+
+Or run tests:
+
+```bash
+go test -tags=gin ./...
+```
+
+### Usage
+
+```go
+package main
+
+import (
+    "errors"
+    "github.com/gin-gonic/gin"
+    "github.com/davidsugianto/go-pkgs/response"
+)
+
+func getUser(c *gin.Context) {
+    user := User{ID: 1, Name: "John"}
+    response.GinSuccess(c, user)
+}
+
+func createUser(c *gin.Context) {
+    var user User
+    if err := c.ShouldBindJSON(&user); err != nil {
+        response.GinBadRequest(c, err)
+        return
+    }
+    response.GinCreated(c, user)
+}
+
+func deleteUser(c *gin.Context) {
+    if err := deleteUserByID(c.Param("id")); err != nil {
+        response.GinNotFound(c, err)
+        return
+    }
+    response.GinNoContent(c)
+}
+
+func main() {
+    r := gin.Default()
+    r.GET("/users/:id", getUser)
+    r.POST("/users", createUser)
+    r.DELETE("/users/:id", deleteUser)
+    r.Run(":8080")
+}
+```
+
+### Gin API Reference
+
+All Gin functions accept `*gin.Context` as the first parameter:
+
+| Function | Status Code | Description |
+|----------|-------------|-------------|
+| `GinJSON(c, code, data)` | Custom | Custom status with data |
+| `GinSuccess(c, data)` | 200 | Success response |
+| `GinCreated(c, data)` | 201 | Resource created |
+| `GinNoContent(c)` | 204 | No content |
+| `GinError(c, code, err)` | Custom | Custom error status |
+| `GinBadRequest(c, err)` | 400 | Bad request error |
+| `GinUnauthorized(c, err)` | 401 | Unauthorized error |
+| `GinForbidden(c, err)` | 403 | Forbidden error |
+| `GinNotFound(c, err)` | 404 | Not found error |
+| `GinInternalServerError(c, err)` | 500 | Server error |
+| `GinStatusCode(c, code, msg)` | Custom | Custom status with message |
+| `GinPaginated(c, data, page, size, total)` | 200 | Paginated response |
+
+### Paginated Response
+
+```go
+func listUsers(c *gin.Context) {
+    users := []User{
+        {ID: 1, Name: "John"},
+        {ID: 2, Name: "Jane"},
+    }
+    response.GinPaginated(c, users, 1, 10, 25)
+}
+
+// Response:
+// {
+//   "code": 200,
+//   "data": [...],
+//   "page": 1,
+//   "page_size": 10,
+//   "total": 25
+// }
+```
 
