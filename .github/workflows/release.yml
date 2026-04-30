@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: 'Package to release (grace, httpclient, pagination, config, response, redis, logger, otel, db)'
+        description: 'Package to release'
         required: true
         type: choice
         options:
@@ -55,7 +55,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.25'
 
       - name: Detect changed packages
         id: detect
@@ -84,6 +84,7 @@ jobs:
         if: steps.detect.outputs.packages != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           PACKAGES="${{ steps.detect.outputs.packages }}"
           IFS=',' read -ra PKG_ARRAY <<< "$PACKAGES"
@@ -95,24 +96,20 @@ jobs:
             LATEST_TAG=$(git tag -l "${pkg}/v*" --sort=-version:refname | head -n1)
 
             if [ -z "$LATEST_TAG" ]; then
-              # No existing tag, start with v0.1.0
               NEW_VERSION="${pkg}/v0.1.0"
               CURRENT_VERSION="none"
             else
               CURRENT_VERSION="$LATEST_TAG"
 
-              # Parse current version
               VERSION_NUM=$(echo "$LATEST_TAG" | sed "s|${pkg}/v||")
               IFS='.' read -ra PARTS <<< "$VERSION_NUM"
               MAJOR=${PARTS[0]}
               MINOR=${PARTS[1]}
               PATCH=${PARTS[2]}
 
-              # Determine bump type
               if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
                 BUMP="${{ inputs.version_bump }}"
               else
-                # Auto-detect bump type based on commit messages
                 COMMITS=$(git log --pretty=format:"%s" HEAD~1..HEAD)
                 if echo "$COMMITS" | grep -qiE "^(feat|feature)"; then
                   BUMP="minor"
@@ -125,7 +122,6 @@ jobs:
                 fi
               fi
 
-              # Bump version
               case $BUMP in
                 major)
                   MAJOR=$((MAJOR + 1))
@@ -149,36 +145,16 @@ jobs:
 
             # Generate changelog
             if [ "$CURRENT_VERSION" = "none" ]; then
-              CHANGELOG="Initial release for ${pkg} package.
-
-## Installation
-\`\`\`bash
-go get github.com/davidsugianto/go-pkgs/${pkg}@${NEW_VERSION}
-\`\`\`
-
-## Documentation
-See [README](https://github.com/davidsugianto/go-pkgs/tree/master/${pkg}/README.md) for details."
+              CHANGELOG="Initial release for ${pkg} package.\n\n## Installation\n\n\`\`\`bash\ngo get github.com/davidsugianto/go-pkgs/${pkg}@${NEW_VERSION}\n\`\`\`\n\n## Documentation\n\nSee README for details."
             else
-              CHANGELOG="## What's Changed
-
-"
-
-              # Get commits affecting this package
+              CHANGELOG="## What's Changed\n\n"
               if git rev-parse "$CURRENT_VERSION" >/dev/null 2>&1; then
                 COMMITS=$(git log --pretty=format:"- %s (%h)" "$CURRENT_VERSION"..HEAD -- "$pkg/")
                 CHANGELOG="${CHANGELOG}${COMMITS}"
               else
                 CHANGELOG="${CHANGELOG}Updated ${pkg} package"
               fi
-
-              CHANGELOG="${CHANGELOG}
-
-## Installation
-\`\`\`bash
-go get github.com/davidsugianto/go-pkgs/${pkg}@${NEW_VERSION}
-\`\`\`
-
-**Full Changelog**: https://github.com/${{ github.repository }}/compare/${CURRENT_VERSION}...${NEW_VERSION}"
+              CHANGELOG="${CHANGELOG}\n\n## Installation\n\n\`\`\`bash\ngo get github.com/davidsugianto/go-pkgs/${pkg}@${NEW_VERSION}\n\`\`\`\n\n**Full Changelog**: https://github.com/${REPOSITORY}/compare/${CURRENT_VERSION}...${NEW_VERSION}"
             fi
 
             # Create tag
@@ -186,12 +162,12 @@ go get github.com/davidsugianto/go-pkgs/${pkg}@${NEW_VERSION}
             git push origin "$NEW_VERSION"
 
             # Create GitHub release
-            gh release create "$NEW_VERSION" \
+            echo -e "$CHANGELOG" | gh release create "$NEW_VERSION" \
               --title "$pkg $NEW_VERSION" \
-              --notes "$CHANGELOG" \
+              --notes-file - \
               --latest=false
 
-            echo "✅ Released $NEW_VERSION"
+            echo "Released $NEW_VERSION"
           done
 
       - name: Summary
