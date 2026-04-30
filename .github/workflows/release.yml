@@ -1,0 +1,205 @@
+name: Release
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'grace/**'
+      - 'httpclient/**'
+      - 'pagination/**'
+      - 'config/**'
+      - 'response/**'
+      - 'redis/**'
+      - 'logger/**'
+      - 'otel/**'
+      - 'db/**'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to release (grace, httpclient, pagination, config, response, redis, logger, otel, db)'
+        required: true
+        type: choice
+        options:
+          - grace
+          - httpclient
+          - pagination
+          - config
+          - response
+          - redis
+          - logger
+          - otel
+          - db
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Detect changed packages
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "packages=${{ inputs.package }}" >> $GITHUB_OUTPUT
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+            PACKAGES=""
+
+            for pkg in grace httpclient pagination config response redis logger otel db; do
+              if echo "$CHANGED_FILES" | grep -q "^$pkg/"; then
+                if [ -z "$PACKAGES" ]; then
+                  PACKAGES="$pkg"
+                else
+                  PACKAGES="$PACKAGES,$pkg"
+                fi
+              fi
+            done
+
+            echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
+            echo "Detected packages: $PACKAGES"
+          fi
+
+      - name: Create releases
+        if: steps.detect.outputs.packages != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PACKAGES="${{ steps.detect.outputs.packages }}"
+          IFS=',' read -ra PKG_ARRAY <<< "$PACKAGES"
+
+          for pkg in "${PKG_ARRAY[@]}"; do
+            echo "Processing package: $pkg"
+
+            # Get the latest tag for this package
+            LATEST_TAG=$(git tag -l "${pkg}/v*" --sort=-version:refname | head -n1)
+
+            if [ -z "$LATEST_TAG" ]; then
+              # No existing tag, start with v0.1.0
+              NEW_VERSION="${pkg}/v0.1.0"
+              CURRENT_VERSION="none"
+            else
+              CURRENT_VERSION="$LATEST_TAG"
+
+              # Parse current version
+              VERSION_NUM=$(echo "$LATEST_TAG" | sed "s|${pkg}/v||")
+              IFS='.' read -ra PARTS <<< "$VERSION_NUM"
+              MAJOR=${PARTS[0]}
+              MINOR=${PARTS[1]}
+              PATCH=${PARTS[2]}
+
+              # Determine bump type
+              if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                BUMP="${{ inputs.version_bump }}"
+              else
+                # Auto-detect bump type based on commit messages
+                COMMITS=$(git log --pretty=format:"%s" HEAD~1..HEAD)
+                if echo "$COMMITS" | grep -qiE "^(feat|feature)"; then
+                  BUMP="minor"
+                elif echo "$COMMITS" | grep -qiE "^(fix|patch)"; then
+                  BUMP="patch"
+                elif echo "$COMMITS" | grep -qiE "^(break|major)"; then
+                  BUMP="major"
+                else
+                  BUMP="patch"
+                fi
+              fi
+
+              # Bump version
+              case $BUMP in
+                major)
+                  MAJOR=$((MAJOR + 1))
+                  MINOR=0
+                  PATCH=0
+                  ;;
+                minor)
+                  MINOR=$((MINOR + 1))
+                  PATCH=0
+                  ;;
+                patch)
+                  PATCH=$((PATCH + 1))
+                  ;;
+              esac
+
+              NEW_VERSION="${pkg}/v${MAJOR}.${MINOR}.${PATCH}"
+            fi
+
+            echo "Current version: $CURRENT_VERSION"
+            echo "New version: $NEW_VERSION"
+
+            # Generate changelog
+            if [ "$CURRENT_VERSION" = "none" ]; then
+              CHANGELOG="Initial release for ${pkg} package.
+
+## Installation
+\`\`\`bash
+go get github.com/davidsugianto/go-pkgs/${pkg}@${NEW_VERSION}
+\`\`\`
+
+## Documentation
+See [README](https://github.com/davidsugianto/go-pkgs/tree/master/${pkg}/README.md) for details."
+            else
+              CHANGELOG="## What's Changed
+
+"
+
+              # Get commits affecting this package
+              if git rev-parse "$CURRENT_VERSION" >/dev/null 2>&1; then
+                COMMITS=$(git log --pretty=format:"- %s (%h)" "$CURRENT_VERSION"..HEAD -- "$pkg/")
+                CHANGELOG="${CHANGELOG}${COMMITS}"
+              else
+                CHANGELOG="${CHANGELOG}Updated ${pkg} package"
+              fi
+
+              CHANGELOG="${CHANGELOG}
+
+## Installation
+\`\`\`bash
+go get github.com/davidsugianto/go-pkgs/${pkg}@${NEW_VERSION}
+\`\`\`
+
+**Full Changelog**: https://github.com/${{ github.repository }}/compare/${CURRENT_VERSION}...${NEW_VERSION}"
+            fi
+
+            # Create tag
+            git tag "$NEW_VERSION"
+            git push origin "$NEW_VERSION"
+
+            # Create GitHub release
+            gh release create "$NEW_VERSION" \
+              --title "$pkg $NEW_VERSION" \
+              --notes "$CHANGELOG" \
+              --latest=false
+
+            echo "✅ Released $NEW_VERSION"
+          done
+
+      - name: Summary
+        run: |
+          echo "## Releases Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          PACKAGES="${{ steps.detect.outputs.packages }}"
+          IFS=',' read -ra PKG_ARRAY <<< "$PACKAGES"
+          for pkg in "${PKG_ARRAY[@]}"; do
+            echo "- \`${pkg}\`" >> $GITHUB_STEP_SUMMARY
+          done
