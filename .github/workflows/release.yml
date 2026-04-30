@@ -13,31 +13,6 @@ on:
       - 'logger/**'
       - 'otel/**'
       - 'db/**'
-  workflow_dispatch:
-    inputs:
-      package:
-        description: 'Package to release'
-        required: true
-        type: choice
-        options:
-          - grace
-          - httpclient
-          - pagination
-          - config
-          - response
-          - redis
-          - logger
-          - otel
-          - db
-      version_bump:
-        description: 'Version bump type'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
 
 permissions:
   contents: write
@@ -60,25 +35,21 @@ jobs:
       - name: Detect changed packages
         id: detect
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "packages=${{ inputs.package }}" >> $GITHUB_OUTPUT
-          else
-            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
-            PACKAGES=""
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          PACKAGES=""
 
-            for pkg in grace httpclient pagination config response redis logger otel db; do
-              if echo "$CHANGED_FILES" | grep -q "^$pkg/"; then
-                if [ -z "$PACKAGES" ]; then
-                  PACKAGES="$pkg"
-                else
-                  PACKAGES="$PACKAGES,$pkg"
-                fi
+          for pkg in grace httpclient pagination config response redis logger otel db; do
+            if echo "$CHANGED_FILES" | grep -q "^$pkg/"; then
+              if [ -z "$PACKAGES" ]; then
+                PACKAGES="$pkg"
+              else
+                PACKAGES="$PACKAGES,$pkg"
               fi
-            done
+            fi
+          done
 
-            echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
-            echo "Detected packages: $PACKAGES"
-          fi
+          echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
+          echo "Detected packages: $PACKAGES"
 
       - name: Create releases
         if: steps.detect.outputs.packages != ''
@@ -107,19 +78,16 @@ jobs:
               MINOR=${PARTS[1]}
               PATCH=${PARTS[2]}
 
-              if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-                BUMP="${{ inputs.version_bump }}"
+              # Auto-detect bump type based on commit messages
+              COMMITS=$(git log --pretty=format:"%s" HEAD~1..HEAD)
+              if echo "$COMMITS" | grep -qiE "^(feat|feature)"; then
+                BUMP="minor"
+              elif echo "$COMMITS" | grep -qiE "^(fix|patch)"; then
+                BUMP="patch"
+              elif echo "$COMMITS" | grep -qiE "^(break|major)"; then
+                BUMP="major"
               else
-                COMMITS=$(git log --pretty=format:"%s" HEAD~1..HEAD)
-                if echo "$COMMITS" | grep -qiE "^(feat|feature)"; then
-                  BUMP="minor"
-                elif echo "$COMMITS" | grep -qiE "^(fix|patch)"; then
-                  BUMP="patch"
-                elif echo "$COMMITS" | grep -qiE "^(break|major)"; then
-                  BUMP="major"
-                else
-                  BUMP="patch"
-                fi
+                BUMP="patch"
               fi
 
               case $BUMP in
@@ -171,6 +139,7 @@ jobs:
           done
 
       - name: Summary
+        if: steps.detect.outputs.packages != ''
         run: |
           echo "## Releases Created" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
