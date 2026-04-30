@@ -114,7 +114,7 @@ JWT authentication helpers for token generation, validation, and middleware.
 ## 🛠 Getting Started
 
 ### 1. Prerequisites
-- Go 1.23+ installed → [Download Go](https://go.dev/dl/)
+- Go 1.25+ installed → [Download Go](https://go.dev/dl/)
 - (Optional) Docker & Docker Compose for running Redis/DB examples
 
 ### 2. Clone the Repository
