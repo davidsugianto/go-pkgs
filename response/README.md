@@ -399,24 +399,12 @@ Then try the endpoints:
 
 ## Gin Framework Support
 
-The package includes built-in support for the [Gin](https://github.com/gin-gonic/gin) web framework. To use it, build your application with the `gin` build tag.
+The package includes built-in support for the [Gin](https://github.com/gin-gonic/gin) web framework.
 
 ### Installation
 
 ```bash
 go get github.com/gin-gonic/gin
-```
-
-### Build with Gin Support
-
-```bash
-go build -tags=gin ./...
-```
-
-Or run tests:
-
-```bash
-go test -tags=gin ./...
 ```
 
 ### Usage

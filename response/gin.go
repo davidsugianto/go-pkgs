@@ -1,6 +1,3 @@
-//go:build gin
-// +build gin
-
 package response
 
 import (

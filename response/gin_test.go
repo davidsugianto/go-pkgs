@@ -1,6 +1,3 @@
-//go:build gin
-// +build gin
-
 package response
 
 import (
@@ -60,7 +57,6 @@ func TestGinNoContent(t *testing.T) {
 
 	GinNoContent(c)
 
-	// Gin sets 200 by default, but we should check the response is empty
 	assert.Equal(t, http.StatusNoContent, w.Code)
 	assert.Empty(t, w.Body.String())
 }
