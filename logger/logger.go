@@ -222,6 +222,7 @@ func (l *Logger) SetLevel(level zerolog.Level) {
 var (
 	globalLogger *Logger
 	globalOnce   sync.Once
+	globalMu     sync.RWMutex
 )
 
 // GetGlobal returns the global logger instance (singleton)
@@ -229,11 +230,15 @@ func GetGlobal() *Logger {
 	globalOnce.Do(func() {
 		globalLogger = New()
 	})
+	globalMu.RLock()
+	defer globalMu.RUnlock()
 	return globalLogger
 }
 
 // SetGlobal sets the global logger instance
 func SetGlobal(logger *Logger) {
+	globalMu.Lock()
+	defer globalMu.Unlock()
 	globalLogger = logger
 }
 

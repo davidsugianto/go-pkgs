@@ -582,9 +582,17 @@ func TestLogger_ValidJSON(t *testing.T) {
 }
 
 func TestLogger_ConcurrentAccess(t *testing.T) {
+	// Use a thread-safe writer for concurrent access
+	var mu sync.Mutex
 	var buf bytes.Buffer
+	safeWriter := writerFunc(func(p []byte) (n int, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return buf.Write(p)
+	})
+
 	logger := NewWithConfig(Config{
-		Output: &buf,
+		Output: safeWriter,
 		Format: FormatJSON,
 	})
 
@@ -599,8 +607,15 @@ func TestLogger_ConcurrentAccess(t *testing.T) {
 	}
 	wg.Wait()
 
-	// Just verify no panic occurred (bytes.Buffer is not thread-safe for counting)
+	// Just verify no panic occurred
 	assert.NotEmpty(t, buf.String(), "Should have some output")
+}
+
+// writerFunc is a helper type to create an io.Writer from a function
+type writerFunc func(p []byte) (n int, err error)
+
+func (w writerFunc) Write(p []byte) (n int, err error) {
+	return w(p)
 }
 
 // func TestGlobalFunctions(t *testing.T) {

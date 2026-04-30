@@ -61,4 +61,4 @@ logger.Info().Msg("message")
 
 ## Go Version
 
-Requires Go 1.23.0+.
+Requires Go 1.25.0+.
