@@ -2,6 +2,14 @@
 
 A comprehensive, reusable Go package for OpenTelemetry integration providing centralized configuration for distributed tracing, metrics, and logging.
 
+## Overview
+
+The `otel` package provides centralized OpenTelemetry configuration that enables observability across all library packages. It supports the three pillars of observability:
+
+- **Traces** - Distributed tracing for request flows
+- **Metrics** - Performance and health measurements
+- **Logs** - Structured logging via OpenTelemetry standard
+
 ## Features
 
 - **Unified Configuration**: Single config object for all telemetry pillars

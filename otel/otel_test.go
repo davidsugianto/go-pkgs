@@ -1,9 +1,7 @@
-// otel_test.go
 package otel
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -41,7 +39,7 @@ func TestConfigChaining(t *testing.T) {
 		WithEnvironment("staging").
 		WithTracing(false).
 		WithMetrics(true).
-		WithLogLevel(slog.LevelDebug).
+		WithLogging(false).
 		WithResourceAttribute("team", "platform")
 
 	if config.ServiceVersion != "2.0.0" {
@@ -60,8 +58,8 @@ func TestConfigChaining(t *testing.T) {
 		t.Error("Expected EnableMetrics to be true")
 	}
 
-	if config.LogLevel != slog.LevelDebug {
-		t.Errorf("Expected LogLevel Debug, got %v", config.LogLevel)
+	if config.EnableLogging {
+		t.Error("Expected EnableLogging to be false")
 	}
 
 	if config.ResourceAttributes["team"] != "platform" {
@@ -92,57 +90,6 @@ func TestProviderWithoutEndpoints(t *testing.T) {
 	tracer := provider.Tracer("test")
 	if tracer == nil {
 		t.Error("Expected tracer to be available")
-	}
-}
-
-func TestProviderLogging(t *testing.T) {
-	ctx := context.Background()
-
-	config := NewConfig("test-service").
-		WithLogging(true).
-		WithLogLevel(slog.LevelDebug)
-
-	provider, err := NewProvider(ctx, config)
-	if err != nil {
-		t.Fatalf("Failed to create provider: %v", err)
-	}
-	defer provider.Shutdown(ctx)
-
-	logger := provider.Logger(ctx)
-	if logger == nil {
-		t.Fatal("Expected logger to be available")
-	}
-
-	// Test logging (this will output to stdout during tests)
-	logger.Info("Test log message", slog.String("key", "value"))
-}
-
-func TestLoggerWithTraceContext(t *testing.T) {
-	ctx := context.Background()
-
-	config := NewConfig("test-service").
-		WithLogging(true)
-
-	provider, err := NewProvider(ctx, config)
-	if err != nil {
-		t.Fatalf("Failed to create provider: %v", err)
-	}
-	defer provider.Shutdown(ctx)
-
-	// Create a span to get trace context
-	tracer := provider.Tracer("test")
-	ctx, span := tracer.Start(ctx, "test-operation")
-	defer span.End()
-
-	// Get logger with trace context
-	logger := provider.Logger(ctx)
-
-	// Log should include trace_id and span_id if span is valid
-	logger.Info("Test log with trace context")
-
-	spanCtx := trace.SpanContextFromContext(ctx)
-	if !spanCtx.IsValid() {
-		t.Log("Note: Span context not valid (expected without actual OTLP endpoint)")
 	}
 }
 
@@ -236,19 +183,66 @@ func TestGetProviders(t *testing.T) {
 	}
 }
 
-// Benchmark tests
-func BenchmarkLoggerCreation(b *testing.B) {
+func TestProviderMetadata(t *testing.T) {
 	ctx := context.Background()
-	config := NewConfig("bench-service").WithLogging(true)
-	provider, _ := NewProvider(ctx, config)
+
+	config := NewConfig("test-service").
+		WithServiceVersion("2.0.0").
+		WithEnvironment("production")
+
+	provider, err := NewProvider(ctx, config)
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
 	defer provider.Shutdown(ctx)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = provider.Logger(ctx)
+	if provider.ServiceName() != "test-service" {
+		t.Errorf("Expected ServiceName 'test-service', got '%s'", provider.ServiceName())
+	}
+
+	if provider.ServiceVersion() != "2.0.0" {
+		t.Errorf("Expected ServiceVersion '2.0.0', got '%s'", provider.ServiceVersion())
+	}
+
+	if provider.Environment() != "production" {
+		t.Errorf("Expected Environment 'production', got '%s'", provider.Environment())
 	}
 }
 
+func TestLoggerConfig(t *testing.T) {
+	ctx := context.Background()
+
+	config := NewConfig("test-service").
+		WithServiceVersion("1.5.0").
+		WithEnvironment("staging").
+		WithResourceAttribute("team", "backend")
+
+	provider, err := NewProvider(ctx, config)
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+	defer provider.Shutdown(ctx)
+
+	loggerCfg := provider.LoggerConfig()
+	if loggerCfg.ServiceName != "test-service" {
+		t.Errorf("Expected ServiceName 'test-service', got '%s'", loggerCfg.ServiceName)
+	}
+
+	if loggerCfg.Environment != "staging" {
+		t.Errorf("Expected Environment 'staging', got '%s'", loggerCfg.Environment)
+	}
+}
+
+func TestLoggerOutput(t *testing.T) {
+	config := NewConfig("test-service").
+		WithLoggerOutput(LoggerOutputStdout)
+
+	if config.LoggerOutput != LoggerOutputStdout {
+		t.Errorf("Expected LoggerOutputStdout, got '%s'", config.LoggerOutput)
+	}
+}
+
+// Benchmark tests
 func BenchmarkSpanCreation(b *testing.B) {
 	ctx := context.Background()
 	config := NewConfig("bench-service")

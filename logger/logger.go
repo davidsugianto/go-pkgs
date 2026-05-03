@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -18,6 +19,11 @@ type Logger struct {
 	spanIDKey  string
 	level      zerolog.Level
 	mu         sync.RWMutex
+
+	// OTel integration
+	serviceName    string
+	environment    string
+	resourceAttrs  []attribute.KeyValue
 }
 
 // Config holds configuration for the logger
@@ -48,6 +54,12 @@ type Config struct {
 
 	// PrettyPrint enables pretty JSON formatting (indented) - only affects JSON format
 	PrettyPrint bool
+
+	// Caller enables caller information in logs
+	Caller bool
+
+	// ResourceAttributes adds OpenTelemetry resource attributes to logs
+	ResourceAttributes map[string]string
 }
 
 // New creates a new logger with default configuration
@@ -119,13 +131,25 @@ func NewWithConfig(cfg Config) *Logger {
 	if cfg.Environment != "" {
 		builder = builder.Str("env", cfg.Environment)
 	}
+	if cfg.Caller {
+		logger = logger.With().Caller().Logger()
+	}
 	logger = builder.Logger()
 
+	// Build resource attributes
+	var resourceAttrs []attribute.KeyValue
+	for k, v := range cfg.ResourceAttributes {
+		resourceAttrs = append(resourceAttrs, attribute.String(k, v))
+	}
+
 	return &Logger{
-		Logger:     logger,
-		traceIDKey: cfg.TraceIDFieldName,
-		spanIDKey:  cfg.SpanIDFieldName,
-		level:      cfg.Level,
+		Logger:        logger,
+		traceIDKey:    cfg.TraceIDFieldName,
+		spanIDKey:     cfg.SpanIDFieldName,
+		level:         cfg.Level,
+		serviceName:   cfg.ServiceName,
+		environment:   cfg.Environment,
+		resourceAttrs: resourceAttrs,
 	}
 }
 
@@ -133,33 +157,58 @@ func NewWithConfig(cfg Config) *Logger {
 func (l *Logger) WithContext(ctx context.Context) *Logger {
 	span := trace.SpanFromContext(ctx)
 	spanCtx := span.SpanContext()
-	if !spanCtx.IsValid() {
-		return l
-	}
-
-	fields := make(map[string]interface{})
-	if spanCtx.HasTraceID() {
-		fields[l.traceIDKey] = spanCtx.TraceID().String()
-	}
-	if spanCtx.HasSpanID() {
-		fields[l.spanIDKey] = spanCtx.SpanID().String()
-	}
-
-	if len(fields) == 0 {
-		return l
-	}
 
 	// Create a child logger with trace context
 	builder := l.Logger.With()
-	for key, value := range fields {
-		builder = builder.Interface(key, value)
+
+	if spanCtx.IsValid() {
+		if spanCtx.HasTraceID() {
+			builder = builder.Str(l.traceIDKey, spanCtx.TraceID().String())
+		}
+		if spanCtx.HasSpanID() {
+			builder = builder.Str(l.spanIDKey, spanCtx.SpanID().String())
+		}
 	}
 
 	return &Logger{
-		Logger:     builder.Logger(),
-		traceIDKey: l.traceIDKey,
-		spanIDKey:  l.spanIDKey,
-		level:      l.level,
+		Logger:        builder.Logger(),
+		traceIDKey:    l.traceIDKey,
+		spanIDKey:     l.spanIDKey,
+		level:         l.level,
+		serviceName:   l.serviceName,
+		environment:   l.environment,
+		resourceAttrs: l.resourceAttrs,
+	}
+}
+
+// WithFields creates a new logger with additional fields
+func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
+	builder := l.Logger.With()
+	for k, v := range fields {
+		builder = builder.Interface(k, v)
+	}
+
+	return &Logger{
+		Logger:        builder.Logger(),
+		traceIDKey:    l.traceIDKey,
+		spanIDKey:     l.spanIDKey,
+		level:         l.level,
+		serviceName:   l.serviceName,
+		environment:   l.environment,
+		resourceAttrs: l.resourceAttrs,
+	}
+}
+
+// WithError creates a new logger with an error field
+func (l *Logger) WithError(err error) *Logger {
+	return &Logger{
+		Logger:        l.Logger.With().Err(err).Logger(),
+		traceIDKey:    l.traceIDKey,
+		spanIDKey:     l.spanIDKey,
+		level:         l.level,
+		serviceName:   l.serviceName,
+		environment:   l.environment,
+		resourceAttrs: l.resourceAttrs,
 	}
 }
 
@@ -218,6 +267,21 @@ func (l *Logger) SetLevel(level zerolog.Level) {
 	zerolog.SetGlobalLevel(level)
 }
 
+// ServiceName returns the service name
+func (l *Logger) ServiceName() string {
+	return l.serviceName
+}
+
+// Environment returns the environment
+func (l *Logger) Environment() string {
+	return l.environment
+}
+
+// ResourceAttributes returns the resource attributes
+func (l *Logger) ResourceAttributes() []attribute.KeyValue {
+	return l.resourceAttrs
+}
+
 // Global logger instance
 var (
 	globalLogger *Logger
@@ -256,6 +320,16 @@ var (
 // WithContext returns a logger with context from the global logger
 func WithContext(ctx context.Context) *Logger {
 	return GetGlobal().WithContext(ctx)
+}
+
+// WithFields returns a logger with additional fields from the global logger
+func WithFields(fields map[string]interface{}) *Logger {
+	return GetGlobal().WithFields(fields)
+}
+
+// WithError returns a logger with an error field from the global logger
+func WithError(err error) *Logger {
+	return GetGlobal().WithError(err)
 }
 
 // SetLevel sets the level for the global logger

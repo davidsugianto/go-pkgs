@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 
+	"github.com/davidsugianto/go-pkgs/logger"
 	"github.com/davidsugianto/go-pkgs/otel"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -25,11 +26,11 @@ func TracingMiddleware(provider *otel.Provider) func(http.Handler) http.Handler 
 			defer span.End()
 
 			// Inject logger with trace context
-			logger := provider.Logger(ctx)
-			logger.Info("Incoming request",
-				"method", r.Method,
-				"path", r.URL.Path,
-			)
+			log := logger.WithContext(ctx)
+			log.Info().
+				Str("method", r.Method).
+				Str("path", r.URL.Path).
+				Msg("Incoming request")
 
 			// Call next handler with context
 			next.ServeHTTP(w, r.WithContext(ctx))

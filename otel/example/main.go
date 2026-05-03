@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"log"
-	"log/slog"
 	"time"
 
+	"github.com/davidsugianto/go-pkgs/logger"
 	"github.com/davidsugianto/go-pkgs/otel"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -16,16 +16,15 @@ func main() {
 	ctx := context.Background()
 
 	// Configure OpenTelemetry
-	config := otel.NewConfig("my-service").
+	otelConfig := otel.NewConfig("my-service").
 		WithServiceVersion("1.2.3").
 		WithEnvironment("production").
 		WithTraceEndpoint("localhost:4317").
 		WithMetricEndpoint("localhost:4317").
-		WithLogLevel(slog.LevelDebug).
 		WithResourceAttribute("team", "backend")
 
-	// Initialize provider
-	provider, err := otel.NewProvider(ctx, config)
+	// Initialize OTel provider
+	provider, err := otel.NewProvider(ctx, otelConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize OpenTelemetry: %v", err)
 	}
@@ -34,6 +33,15 @@ func main() {
 			log.Printf("Error shutting down provider: %v", err)
 		}
 	}()
+
+	// Create logger with OTel integration
+	loggerConfig := logger.NewWithConfig(logger.Config{
+		ServiceName:       provider.ServiceName(),
+		Environment:       provider.Environment(),
+		Format:            logger.FormatJSON,
+		ResourceAttributes: provider.ResourceAttributes(),
+	})
+	logger.SetGlobal(loggerConfig)
 
 	// Example 1: Using Tracing
 	tracer := provider.Tracer("my-component")
@@ -46,30 +54,32 @@ func main() {
 	)
 
 	// Example 2: Using Logging with trace context
-	logger := provider.Logger(ctx)
-	logger.Info("Processing request",
-		slog.String("user", "john"),
-		slog.Int("items", 5),
-	)
+	log := logger.WithContext(ctx)
+	log.Info().
+		Str("user", "john").
+		Int("items", 5).
+		Msg("Processing request")
 
 	// Example 3: Using Metrics
-	meter := provider.GetMeterProvider().Meter("my-component")
-
-	counter, err := meter.Int64Counter(
-		"requests.total",
-		metric.WithDescription("Total number of requests"),
-	)
-	if err != nil {
-		log.Printf("Failed to create counter: %v", err)
+	meter := provider.GetMeterProvider()
+	if meter != nil {
+		m := meter.Meter("my-component")
+		counter, err := m.Int64Counter(
+			"requests.total",
+			metric.WithDescription("Total number of requests"),
+		)
+		if err != nil {
+			log.Printf("Failed to create counter: %v", err)
+		} else {
+			counter.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("method", "GET"),
+				attribute.String("status", "200"),
+			))
+		}
 	}
-
-	counter.Add(ctx, 1, metric.WithAttributes(
-		attribute.String("method", "GET"),
-		attribute.String("status", "200"),
-	))
 
 	// Simulate work
 	time.Sleep(100 * time.Millisecond)
 
-	logger.Info("Request completed successfully")
+	log.Info().Msg("Request completed successfully")
 }
