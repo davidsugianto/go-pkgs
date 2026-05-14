@@ -3,7 +3,6 @@ package otel
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 
 	"go.opentelemetry.io/otel"
@@ -34,18 +33,25 @@ type Config struct {
 
 	// Logging configuration
 	EnableLogging bool
-	LogLevel      slog.Level
+	LoggerOutput  LoggerOutput
 
 	// Additional resource attributes
 	ResourceAttributes map[string]string
 }
+
+// LoggerOutput defines where logs should be written
+type LoggerOutput string
+
+const (
+	LoggerOutputStdout LoggerOutput = "stdout"
+	LoggerOutputStderr LoggerOutput = "stderr"
+)
 
 // Provider manages OpenTelemetry providers and their lifecycle.
 type Provider struct {
 	config         *Config
 	tracerProvider *sdktrace.TracerProvider
 	meterProvider  *sdkmetric.MeterProvider
-	logger         *slog.Logger
 	shutdownFuncs  []func(context.Context) error
 }
 
@@ -60,7 +66,7 @@ func NewConfig(serviceName string) *Config {
 		EnableMetrics:      true,
 		MetricEndpoint:     getEnvOrDefault("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", ""),
 		EnableLogging:      true,
-		LogLevel:           slog.LevelInfo,
+		LoggerOutput:       LoggerOutputStderr,
 		ResourceAttributes: make(map[string]string),
 	}
 }
@@ -107,9 +113,9 @@ func (c *Config) WithLogging(enabled bool) *Config {
 	return c
 }
 
-// WithLogLevel sets the log level.
-func (c *Config) WithLogLevel(level slog.Level) *Config {
-	c.LogLevel = level
+// WithLoggerOutput sets the logger output destination.
+func (c *Config) WithLoggerOutput(output LoggerOutput) *Config {
+	c.LoggerOutput = output
 	return c
 }
 
@@ -144,11 +150,6 @@ func NewProvider(ctx context.Context, config *Config) (*Provider, error) {
 		if err := p.initMetrics(ctx, res); err != nil {
 			return nil, fmt.Errorf("failed to initialize metrics: %w", err)
 		}
-	}
-
-	// Initialize logging
-	if config.EnableLogging {
-		p.initLogging()
 	}
 
 	return p, nil
@@ -221,43 +222,12 @@ func (p *Provider) initMetrics(ctx context.Context, res *resource.Resource) erro
 	return nil
 }
 
-// initLogging initializes structured logging with OpenTelemetry integration.
-func (p *Provider) initLogging() {
-	opts := &slog.HandlerOptions{
-		Level: p.config.LogLevel,
-	}
-
-	handler := slog.NewJSONHandler(os.Stdout, opts)
-	p.logger = slog.New(handler)
-	slog.SetDefault(p.logger)
-}
-
 // Tracer returns a tracer for the given name.
 func (p *Provider) Tracer(name string, opts ...trace.TracerOption) trace.Tracer {
 	if p.tracerProvider == nil {
 		return otel.Tracer(name, opts...)
 	}
 	return p.tracerProvider.Tracer(name, opts...)
-}
-
-// Logger returns the configured logger with trace context.
-func (p *Provider) Logger(ctx context.Context) *slog.Logger {
-	if p.logger == nil {
-		return slog.Default()
-	}
-
-	logger := p.logger
-
-	// Add trace context if available
-	spanCtx := trace.SpanContextFromContext(ctx)
-	if spanCtx.IsValid() {
-		logger = logger.With(
-			slog.String("trace_id", spanCtx.TraceID().String()),
-			slog.String("span_id", spanCtx.SpanID().String()),
-		)
-	}
-
-	return logger
 }
 
 // Shutdown gracefully shuts down all providers.
@@ -285,6 +255,50 @@ func (p *Provider) GetTracerProvider() *sdktrace.TracerProvider {
 // GetMeterProvider returns the meter provider (or nil if not initialized).
 func (p *Provider) GetMeterProvider() *sdkmetric.MeterProvider {
 	return p.meterProvider
+}
+
+// ServiceName returns the configured service name.
+func (p *Provider) ServiceName() string {
+	return p.config.ServiceName
+}
+
+// ServiceVersion returns the configured service version.
+func (p *Provider) ServiceVersion() string {
+	return p.config.ServiceVersion
+}
+
+// Environment returns the configured environment.
+func (p *Provider) Environment() string {
+	return p.config.Environment
+}
+
+// ResourceAttributes returns the configured resource attributes.
+func (p *Provider) ResourceAttributes() map[string]string {
+	return p.config.ResourceAttributes
+}
+
+// LoggerConfig returns a logger.Config that can be used to create a logger
+// with the same service metadata as this provider.
+func (p *Provider) LoggerConfig() LoggerConfig {
+	output := os.Stderr
+	if p.config.LoggerOutput == LoggerOutputStdout {
+		output = os.Stdout
+	}
+
+	return LoggerConfig{
+		ServiceName:       p.config.ServiceName,
+		Environment:       p.config.Environment,
+		Output:            output,
+		ResourceAttributes: p.config.ResourceAttributes,
+	}
+}
+
+// LoggerConfig holds configuration for creating a logger from a Provider.
+type LoggerConfig struct {
+	ServiceName        string
+	Environment        string
+	Output             *os.File
+	ResourceAttributes map[string]string
 }
 
 // getEnvOrDefault returns environment variable value or default.
