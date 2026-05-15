@@ -7,30 +7,33 @@ import (
 	"time"
 
 	"github.com/davidsugianto/go-pkgs/redis"
-	redisdriver "github.com/redis/go-redis/v9"
+	redisdriver "github.com/go-redis/redis/v8"
 )
 
 type User struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID   int    `msgpack:"id"`
+	Name string `msgpack:"name"`
 }
 
 func main() {
-	// Initialize Redis client
-	client := redis.New("localhost:6379",
-		redis.WithPassword(""), // Set password if needed
-		redis.WithDB(0),
-		redis.WithTimeout(5*time.Second),
-	)
-	defer client.Close()
+	// Create underlying redis client
+	redisClient := redisdriver.NewClient(&redisdriver.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+
+	// Create wrapper with prefix
+	client := redis.New(redisClient, "myapp")
+	defer client.Client().Close()
+
+	ctx := context.Background()
 
 	// Test connection
-	ctx := context.Background()
 	if err := client.Ping(ctx); err != nil {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
-	fmt.Println("✓ Connected to Redis")
+	fmt.Println("Connected to Redis")
 	fmt.Println()
 
 	// Basic string operations
@@ -38,14 +41,14 @@ func main() {
 	demoStringOperations(ctx, client)
 	fmt.Println()
 
-	// JSON operations
-	fmt.Println("=== JSON Operations ===")
-	demoJSONOperations(ctx, client)
+	// Struct operations with msgpack
+	fmt.Println("=== Struct Operations ===")
+	demoStructOperations(ctx, client)
 	fmt.Println()
 
-	// Counter operations
-	fmt.Println("=== Counter Operations ===")
-	demoCounterOperations(ctx, client)
+	// Compound key operations
+	fmt.Println("=== Compound Key Operations ===")
+	demoCompoundOperations(ctx, client)
 	fmt.Println()
 
 	// Hash operations
@@ -53,322 +56,218 @@ func main() {
 	demoHashOperations(ctx, client)
 	fmt.Println()
 
-	// List operations
-	fmt.Println("=== List Operations ===")
-	demoListOperations(ctx, client)
-	fmt.Println()
-
 	// Set operations
 	fmt.Println("=== Set Operations ===")
 	demoSetOperations(ctx, client)
 	fmt.Println()
 
-	// Sorted set operations
-	fmt.Println("=== Sorted Set Operations ===")
-	demoSortedSetOperations(ctx, client)
+	// Counter operations
+	fmt.Println("=== Counter Operations ===")
+	demoCounterOperations(ctx, client)
 	fmt.Println()
 
-	// Expiration and TTL
-	fmt.Println("=== Expiration & TTL ===")
+	// Expiration
+	fmt.Println("=== Expiration ===")
 	demoExpiration(ctx, client)
 	fmt.Println()
-
-	// Conditional operations
-	fmt.Println("=== Conditional Operations ===")
-	demoConditionalOperations(ctx, client)
-	fmt.Println()
 }
 
-func demoStringOperations(ctx context.Context, client *redis.Client) {
+func demoStringOperations(ctx context.Context, client *redis.Redis) {
+	// Set a key with prefix
+	err := client.Set(ctx, "greeting", "Hello, Redis!", 10*time.Minute)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Println("Set greeting = 'Hello, Redis!'")
+
+	// Get - note: Get doesn't apply prefix, need to use prefixed key
+	val, err := client.Get(ctx, "myapp:greeting")
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Printf("Got greeting = '%s'\n", val)
+
+	// Delete
+	_, err = client.Del(ctx, "myapp:greeting")
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Println("Deleted greeting")
+}
+
+func demoStructOperations(ctx context.Context, client *redis.Redis) {
+	user := User{ID: 1, Name: "John Doe"}
+
+	// SetStruct - serializes with msgpack
+	err := client.SetStruct(ctx, "user:1", user, 10*time.Minute)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Printf("Stored user: %+v\n", user)
+
+	// GetStruct - deserializes from msgpack
+	var retrieved User
+	err = client.GetStruct(ctx, "myapp:user:1", &retrieved)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Printf("Retrieved user: %+v\n", retrieved)
+
+	// Cleanup
+	client.Del(ctx, "myapp:user:1")
+}
+
+func demoCompoundOperations(ctx context.Context, client *redis.Redis) {
+	// Compound keys are keys joined with ":"
+	// Useful for hierarchical data like "user:123:profile"
+
+	// SetExCompound - SET with compound key and expiration
+	err := client.SetExCompound(ctx, "user", "123:profile", "profile data", 10*time.Minute)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Println("Set compound key 'user:123:profile'")
+
+	// GetCompound - GET with compound key
+	val, err := client.GetCompound(ctx, "user", "123:profile")
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Printf("Got compound value: '%s'\n", val)
+
+	// GetEx - GET with automatic expiration refresh
+	val, err = client.GetEx(ctx, "greeting", 5*time.Minute)
+	if err != nil {
+		if err == redisdriver.Nil {
+			fmt.Println("Key not found")
+		} else {
+			log.Printf("Error: %v", err)
+		}
+	} else {
+		fmt.Printf("Got with expiration refresh: '%s'\n", val)
+	}
+
+	// DelCompound - DELETE with compound key
+	_, err = client.DelCompound(ctx, "user", "123:profile")
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Println("Deleted compound key")
+}
+
+func demoHashOperations(ctx context.Context, client *redis.Redis) {
+	// HSetStruct - store struct in hash field
+	data := User{ID: 2, Name: "Jane"}
+	err := client.HSetStruct(ctx, "myapp:users", "user:2", data)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Println("Stored struct in hash")
+
+	// HGetStruct - retrieve struct from hash field
+	var retrieved User
+	err = client.HGetStruct(ctx, "myapp:users", "user:2", &retrieved)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Printf("Retrieved from hash: %+v\n", retrieved)
+
+	// HGetAll - get all hash fields
+	client.Client().HSet(ctx, "myapp:profile", "name", "Alice")
+	client.Client().HSet(ctx, "myapp:profile", "email", "alice@example.com")
+
+	all, err := client.HGetAll(ctx, "myapp:profile")
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Printf("All hash fields: %+v\n", all)
+
+	// HDel - delete hash field
+	_, err = client.HDel(ctx, "myapp:profile", "name")
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Println("Deleted hash field")
+
+	// Cleanup
+	client.Del(ctx, "myapp:users")
+	client.Del(ctx, "myapp:profile")
+}
+
+func demoSetOperations(ctx context.Context, client *redis.Redis) {
+	// AddInSet - SADD
+	err := client.AddInSet(ctx, "myapp:tags", "golang")
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	client.AddInSet(ctx, "myapp:tags", "redis")
+	client.AddInSet(ctx, "myapp:tags", "backend")
+	fmt.Println("Added members to set")
+
+	// GetSetMembers - SMEMBERS
+	members, err := client.GetSetMembers(ctx, "myapp:tags")
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Printf("Set members: %v\n", members)
+
+	// Cleanup
+	client.Del(ctx, "myapp:tags")
+}
+
+func demoCounterOperations(ctx context.Context, client *redis.Redis) {
+	// Setup initial value
+	client.Client().Set(ctx, "myapp:counter", "0", 0)
+
+	// IncrBy - increment by value
+	val, err := client.IncrBy(ctx, "myapp:counter", 5)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Printf("After increment by 5: %d\n", val)
+
+	// HIncrBy - increment hash field
+	client.Client().HSet(ctx, "myapp:stats", "views", "0")
+	val, err = client.HIncrBy(ctx, "myapp:stats", "views", 10)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+	fmt.Printf("Hash field after increment by 10: %d\n", val)
+
+	// Cleanup
+	client.Del(ctx, "myapp:counter")
+	client.Del(ctx, "myapp:stats")
+}
+
+func demoExpiration(ctx context.Context, client *redis.Redis) {
 	// Set a key
-	err := client.Set(ctx, "key1", "value1", time.Hour)
+	client.Set(ctx, "tempkey", "tempvalue", 5*time.Minute)
+	fmt.Println("Set key with 5 minute expiration")
+
+	// Expire - update expiration
+	ok, err := client.Expire(ctx, "myapp:tempkey", 10*time.Minute)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
 	}
-	fmt.Println("Set key1 = 'value1'")
+	fmt.Printf("Expiration updated: %v\n", ok)
 
-	// Get a key
-	val, err := client.Get(ctx, "key1")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("Got key1 = '%s'\n", val)
-
-	// Check if key exists
-	exists, err := client.Exists(ctx, "key1")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("key1 exists: %v\n", exists)
-
-	// Delete key
-	err = client.Delete(ctx, "key1")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Println("Deleted key1")
-
-	// Try to get deleted key
-	_, err = client.Get(ctx, "key1")
-	if err == redis.ErrKeyNotFound {
-		fmt.Println("key1 not found (expected)")
-	}
-}
-
-func demoJSONOperations(ctx context.Context, client *redis.Client) {
-	user := User{
-		ID:    1,
-		Name:  "John Doe",
-		Email: "john@example.com",
-	}
-
-	// Store JSON
-	err := client.SetJSON(ctx, "user:1", user, time.Hour)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("Stored JSON: %+v\n", user)
-
-	// Retrieve JSON
-	var retrievedUser User
-	err = client.GetJSON(ctx, "user:1", &retrievedUser)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("Retrieved JSON: %+v\n", retrievedUser)
-
-	client.Delete(ctx, "user:1")
-}
-
-func demoCounterOperations(ctx context.Context, client *redis.Client) {
-	// Set initial value
-	err := client.Set(ctx, "counter", 0, time.Hour)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Println("Set counter = 0")
-
-	// Increment
-	val, err := client.Increment(ctx, "counter", 1)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("Incremented by 1: %d\n", val)
-
-	val, err = client.Increment(ctx, "counter", 5)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("Incremented by 5: %d\n", val)
-
-	// Decrement
-	val, err = client.Decrement(ctx, "counter", 2)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("Decremented by 2: %d\n", val)
-
-	client.Delete(ctx, "counter")
-}
-
-func demoHashOperations(ctx context.Context, client *redis.Client) {
-	// Set hash fields
-	err := client.HSet(ctx, "user:2:profile", "name", "Jane Doe")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	err = client.HSet(ctx, "user:2:profile", "email", "jane@example.com")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Println("Set hash fields")
-
-	// Get hash field
-	name, err := client.HGet(ctx, "user:2:profile", "name")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("Got name: %s\n", name)
-
-	// Set multiple hash fields at once
-	err = client.HMSet(ctx, "user:2:profile", "age", "25", "city", "NYC")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Println("Set multiple hash fields")
-
-	// Get all hash fields
-	all, err := client.HGetAll(ctx, "user:2:profile")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("All fields: %+v\n", all)
-
-	client.Delete(ctx, "user:2:profile")
-}
-
-func demoListOperations(ctx context.Context, client *redis.Client) {
-	// Push to list
-	err := client.RPush(ctx, "tasks", "task1", "task2", "task3")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Println("Pushed tasks to list")
-
-	// Get list length
-	length, err := client.LLen(ctx, "tasks")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("List length: %d\n", length)
-
-	// Get all items
-	items, err := client.LRange(ctx, "tasks", 0, -1)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("All items: %v\n", items)
-
-	// Pop from list
-	task, err := client.RPop(ctx, "tasks")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("Popped task: %s\n", task)
-
-	client.Delete(ctx, "tasks")
-}
-
-func demoSetOperations(ctx context.Context, client *redis.Client) {
-	// Add to set
-	err := client.SAdd(ctx, "tags", "golang", "redis", "go-pkgs")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Println("Added tags to set")
-
-	// Get all members
-	members, err := client.SMembers(ctx, "tags")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("All tags: %v\n", members)
-
-	// Check membership
-	isMember, err := client.SIsMember(ctx, "tags", "golang")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("Is 'golang' a member? %v\n", isMember)
-
-	client.Delete(ctx, "tags")
-}
-
-func demoSortedSetOperations(ctx context.Context, client *redis.Client) {
-	// Add to sorted set
-	err := client.ZAdd(ctx, "leaderboard",
-		redisdriver.Z{Score: 100, Member: "Alice"},
-		redisdriver.Z{Score: 200, Member: "Bob"},
-		redisdriver.Z{Score: 150, Member: "Charlie"},
-	)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Println("Added scores to leaderboard")
-
-	// Get top players
-	top, err := client.ZRange(ctx, "leaderboard", 0, -1)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("Leaderboard: %v\n", top)
-
-	client.Delete(ctx, "leaderboard")
-}
-
-func demoExpiration(ctx context.Context, client *redis.Client) {
-	// Set key with expiration
-	err := client.Set(ctx, "temp:key", "temp:value", 10*time.Second)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Println("Set key with 10s expiration")
-
-	// Get TTL
-	ttl, err := client.TTL(ctx, "temp:key")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("TTL: %v\n", ttl)
-
-	// Update expiration
-	err = client.Expire(ctx, "temp:key", 20*time.Second)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Println("Extended expiration to 20s")
-
-	ttl, err = client.TTL(ctx, "temp:key")
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("New TTL: %v\n", ttl)
-
-	client.Delete(ctx, "temp:key")
-}
-
-func demoConditionalOperations(ctx context.Context, client *redis.Client) {
-	// SetNX - only set if not exists
-	ok, err := client.SetNX(ctx, "lock:resource1", "locked", time.Minute)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("SetNX succeeded: %v\n", ok)
-
-	// Try again - should fail
-	ok, err = client.SetNX(ctx, "lock:resource1", "locked", time.Minute)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("SetNX succeeded (second time): %v\n", ok)
-
-	// SetXX - only set if exists
-	ok, err = client.SetXX(ctx, "lock:resource1", "updated", time.Minute)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}
-	fmt.Printf("SetXX succeeded: %v\n", ok)
-
-	client.Delete(ctx, "lock:resource1")
+	// Cleanup
+	client.Del(ctx, "myapp:tempkey")
 }
