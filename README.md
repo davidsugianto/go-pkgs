@@ -114,9 +114,6 @@ go get github.com/davidsugianto/go-pkgs/redislock
 
 ### 🚧 Planned
 
-#### `httpserver`
-Graceful HTTP server with middleware support (logging, recovery, health checks).
-
 #### `config` (`.env` support)
 Add `.env` file support and environment variable overrides to the config package.
 
