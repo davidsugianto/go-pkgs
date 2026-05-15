@@ -5,77 +5,120 @@ import (
 	"testing"
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var testCtx = context.Background()
 
-func TestNew(t *testing.T) {
-	client := New("localhost:6379")
-	assert.NotNil(t, client)
-	assert.NotNil(t, client.Client)
-	defer client.Close()
+func newTestClient(t *testing.T) *Redis {
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	return New(client, "test")
 }
 
-func TestNewWithOptions(t *testing.T) {
-	client := New("localhost:6379",
-		WithPassword("testpass"),
-		WithDB(1),
-		WithPoolSize(20),
-		WithMinIdleConns(10),
-		WithTimeout(10*time.Second),
-		WithMaxRetries(5),
-	)
-	assert.NotNil(t, client)
-	defer client.Close()
+func TestNew(t *testing.T) {
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	r := New(client, "myprefix")
+	assert.NotNil(t, r)
+}
+
+func TestClient(t *testing.T) {
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	r := New(client, "test")
+	assert.Equal(t, client, r.Client())
 }
 
 func TestPing(t *testing.T) {
-	// Skip test if Redis is not available
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
 
-	client := New("localhost:6379")
-	defer client.Close()
+	r := newTestClient(t)
+	defer r.Client().Close()
 
-	err := client.Ping(testCtx)
+	err := r.Ping(testCtx)
 	if err != nil {
 		t.Skip("Redis not available, skipping test")
 	}
 }
 
-func TestSetGetDelete(t *testing.T) {
+func TestPrefixed(t *testing.T) {
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	r := New(client, "app")
+	assert.Equal(t, "app:key", r.prefixed("key"))
+
+	r2 := New(client, "")
+	assert.Equal(t, "key", r2.prefixed("key"))
+}
+
+func TestSetGet(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
 
-	client := New("localhost:6379")
-	defer client.Close()
+	r := newTestClient(t)
+	defer r.Client().Close()
 
-	err := client.Ping(testCtx)
+	err := r.Ping(testCtx)
 	if err != nil {
 		t.Skip("Redis not available, skipping test")
 	}
 
 	// Set
-	err = client.Set(testCtx, "test:key", "test:value", 10*time.Second)
+	err = r.Set(testCtx, "key1", "value1", 10*time.Second)
 	require.NoError(t, err)
 
-	// Get
-	val, err := client.Get(testCtx, "test:key")
+	// Get - note: Get doesn't use prefix, so we need to use the prefixed key
+	val, err := r.Get(testCtx, "test:key1")
 	require.NoError(t, err)
-	assert.Equal(t, "test:value", val)
+	assert.Equal(t, "value1", val)
 
-	// Delete
-	err = client.Delete(testCtx, "test:key")
+	// Cleanup
+	r.Del(testCtx, "test:key1")
+}
+
+func TestSetStructGetStruct(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	type User struct {
+		ID   int    `msgpack:"id"`
+		Name string `msgpack:"name"`
+	}
+
+	user := User{ID: 1, Name: "John"}
+
+	// SetStruct
+	err = r.SetStruct(testCtx, "user:1", user, 10*time.Second)
 	require.NoError(t, err)
 
-	// Get should fail
-	_, err = client.Get(testCtx, "test:key")
-	assert.Equal(t, ErrKeyNotFound, err)
+	// GetStruct - note: GetStruct uses Get which doesn't apply prefix
+	var retrieved User
+	err = r.GetStruct(testCtx, "test:user:1", &retrieved)
+	require.NoError(t, err)
+	assert.Equal(t, user.ID, retrieved.ID)
+	assert.Equal(t, user.Name, retrieved.Name)
+
+	// Cleanup
+	r.Del(testCtx, "test:user:1")
 }
 
 func TestGetKeyNotFound(t *testing.T) {
@@ -83,449 +126,416 @@ func TestGetKeyNotFound(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	client := New("localhost:6379")
-	defer client.Close()
+	r := newTestClient(t)
+	defer r.Client().Close()
 
-	err := client.Ping(testCtx)
+	err := r.Ping(testCtx)
 	if err != nil {
 		t.Skip("Redis not available, skipping test")
 	}
 
-	_, err = client.Get(testCtx, "test:nonexistent")
+	_, err = r.Get(testCtx, "test:nonexistent")
 	assert.Equal(t, ErrKeyNotFound, err)
 }
 
-func TestGetBytes(t *testing.T) {
+func TestHSetHGet(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
 
-	client := New("localhost:6379")
-	defer client.Close()
+	r := newTestClient(t)
+	defer r.Client().Close()
 
-	err := client.Ping(testCtx)
+	err := r.Ping(testCtx)
 	if err != nil {
 		t.Skip("Redis not available, skipping test")
 	}
 
-	data := []byte("test bytes")
-	err = client.Set(testCtx, "test:bytes", data, 10*time.Second)
-	require.NoError(t, err)
-
-	result, err := client.GetBytes(testCtx, "test:bytes")
-	require.NoError(t, err)
-	assert.Equal(t, data, result)
-
-	client.Delete(testCtx, "test:bytes")
-}
-
-func TestSetJSONGetJSON(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	client := New("localhost:6379")
-	defer client.Close()
-
-	err := client.Ping(testCtx)
-	if err != nil {
-		t.Skip("Redis not available, skipping test")
-	}
-
-	type User struct {
-		ID    int    `json:"id"`
-		Name  string `json:"name"`
-		Email string `json:"email"`
-	}
-
-	user := User{ID: 1, Name: "John", Email: "john@example.com"}
-
-	// SetJSON
-	err = client.SetJSON(testCtx, "test:user", user, 10*time.Second)
-	require.NoError(t, err)
-
-	// GetJSON
-	var result User
-	err = client.GetJSON(testCtx, "test:user", &result)
-	require.NoError(t, err)
-	assert.Equal(t, user.ID, result.ID)
-	assert.Equal(t, user.Name, result.Name)
-	assert.Equal(t, user.Email, result.Email)
-
-	client.Delete(testCtx, "test:user")
-}
-
-func TestExists(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	client := New("localhost:6379")
-	defer client.Close()
-
-	err := client.Ping(testCtx)
-	if err != nil {
-		t.Skip("Redis not available, skipping test")
-	}
-
-	exists, err := client.Exists(testCtx, "test:nonexistent")
-	require.NoError(t, err)
-	assert.False(t, exists)
-
-	err = client.Set(testCtx, "test:exists", "value", 10*time.Second)
-	require.NoError(t, err)
-
-	exists, err = client.Exists(testCtx, "test:exists")
-	require.NoError(t, err)
-	assert.True(t, exists)
-
-	client.Delete(testCtx, "test:exists")
-}
-
-func TestIncrementDecrement(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	client := New("localhost:6379")
-	defer client.Close()
-
-	err := client.Ping(testCtx)
-	if err != nil {
-		t.Skip("Redis not available, skipping test")
-	}
-
-	// Set initial value
-	err = client.Set(testCtx, "test:counter", 0, 10*time.Second)
-	require.NoError(t, err)
-
-	// Increment by 1
-	val, err := client.Increment(testCtx, "test:counter", 1)
-	require.NoError(t, err)
-	assert.Equal(t, int64(1), val)
-
-	// Increment by 5
-	val, err = client.Increment(testCtx, "test:counter", 5)
-	require.NoError(t, err)
-	assert.Equal(t, int64(6), val)
-
-	// Decrement by 2
-	val, err = client.Decrement(testCtx, "test:counter", 2)
-	require.NoError(t, err)
-	assert.Equal(t, int64(4), val)
-
-	client.Delete(testCtx, "test:counter")
-}
-
-func TestExpireTTL(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	client := New("localhost:6379")
-	defer client.Close()
-
-	err := client.Ping(testCtx)
-	if err != nil {
-		t.Skip("Redis not available, skipping test")
-	}
-
-	err = client.Set(testCtx, "test:ttl", "value", 10*time.Second)
-	require.NoError(t, err)
-
-	ttl, err := client.TTL(testCtx, "test:ttl")
-	require.NoError(t, err)
-	assert.InDelta(t, float64(10*time.Second), float64(ttl), float64(2*time.Second))
-
-	client.Delete(testCtx, "test:ttl")
-}
-
-func TestSetNX(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	client := New("localhost:6379")
-	defer client.Close()
-
-	err := client.Ping(testCtx)
-	if err != nil {
-		t.Skip("Redis not available, skipping test")
-	}
-
-	// First SetNX should succeed
-	ok, err := client.SetNX(testCtx, "test:nx", "value1", 10*time.Second)
-	require.NoError(t, err)
-	assert.True(t, ok)
-
-	// Second SetNX should fail
-	ok, err = client.SetNX(testCtx, "test:nx", "value2", 10*time.Second)
-	require.NoError(t, err)
-	assert.False(t, ok)
-
-	// Value should still be the first one
-	val, err := client.Get(testCtx, "test:nx")
-	require.NoError(t, err)
-	assert.Equal(t, "value1", val)
-
-	client.Delete(testCtx, "test:nx")
-}
-
-func TestSetXX(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	client := New("localhost:6379")
-	defer client.Close()
-
-	err := client.Ping(testCtx)
-	if err != nil {
-		t.Skip("Redis not available, skipping test")
-	}
-
-	// SetXX on non-existent key should fail
-	ok, err := client.SetXX(testCtx, "test:xx", "value1", 10*time.Second)
-	require.NoError(t, err)
-	assert.False(t, ok)
-
-	// Set key first
-	err = client.Set(testCtx, "test:xx", "value1", 10*time.Second)
-	require.NoError(t, err)
-
-	// SetXX on existing key should succeed
-	ok, err = client.SetXX(testCtx, "test:xx", "value2", 10*time.Second)
-	require.NoError(t, err)
-	assert.True(t, ok)
-
-	// Value should be updated
-	val, err := client.Get(testCtx, "test:xx")
-	require.NoError(t, err)
-	assert.Equal(t, "value2", val)
-
-	client.Delete(testCtx, "test:xx")
-}
-
-func TestMGetMSet(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	client := New("localhost:6379")
-	defer client.Close()
-
-	err := client.Ping(testCtx)
-	if err != nil {
-		t.Skip("Redis not available, skipping test")
-	}
-
-	// MSet
-	err = client.MSet(testCtx, "test:m1", "v1", "test:m2", "v2", "test:m3", "v3")
-	require.NoError(t, err)
-
-	// MGet
-	values, err := client.MGet(testCtx, "test:m1", "test:m2", "test:m3")
-	require.NoError(t, err)
-	assert.Len(t, values, 3)
-	assert.Equal(t, "v1", values[0])
-	assert.Equal(t, "v2", values[1])
-	assert.Equal(t, "v3", values[2])
-
-	client.Delete(testCtx, "test:m1", "test:m2", "test:m3")
-}
-
-func TestHashOperations(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	client := New("localhost:6379")
-	defer client.Close()
-
-	err := client.Ping(testCtx)
-	if err != nil {
-		t.Skip("Redis not available, skipping test")
-	}
-
-	// HSet
-	err = client.HSet(testCtx, "test:hash", "field1", "value1")
+	// HSet via client directly
+	err = r.Client().HSet(testCtx, "test:hash", "field1", "value1").Err()
 	require.NoError(t, err)
 
 	// HGet
-	val, err := client.HGet(testCtx, "test:hash", "field1")
+	val, err := r.HGet(testCtx, "test:hash", "field1")
 	require.NoError(t, err)
 	assert.Equal(t, "value1", val)
 
-	// HMSet
-	err = client.HMSet(testCtx, "test:hash", "field2", "value2", "field3", "value3")
-	require.NoError(t, err)
+	// Cleanup
+	r.Del(testCtx, "test:hash")
+}
+
+func TestHGetAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	// Setup
+	r.Client().HSet(testCtx, "test:hash2", "field1", "value1")
+	r.Client().HSet(testCtx, "test:hash2", "field2", "value2")
 
 	// HGetAll
-	all, err := client.HGetAll(testCtx, "test:hash")
-	require.NoError(t, err)
-	assert.Len(t, all, 3)
-	assert.Equal(t, "value1", all["field1"])
-	assert.Equal(t, "value2", all["field2"])
-	assert.Equal(t, "value3", all["field3"])
-
-	// HDel
-	err = client.HDel(testCtx, "test:hash", "field1")
-	require.NoError(t, err)
-
-	all, err = client.HGetAll(testCtx, "test:hash")
+	all, err := r.HGetAll(testCtx, "test:hash2")
 	require.NoError(t, err)
 	assert.Len(t, all, 2)
+	assert.Equal(t, "value1", all["field1"])
+	assert.Equal(t, "value2", all["field2"])
 
-	client.Delete(testCtx, "test:hash")
+	// Cleanup
+	r.Del(testCtx, "test:hash2")
 }
 
-func TestListOperations(t *testing.T) {
+func TestHDel(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
 
-	client := New("localhost:6379")
-	defer client.Close()
+	r := newTestClient(t)
+	defer r.Client().Close()
 
-	err := client.Ping(testCtx)
+	err := r.Ping(testCtx)
 	if err != nil {
 		t.Skip("Redis not available, skipping test")
 	}
 
-	// RPush
-	err = client.RPush(testCtx, "test:list", "a", "b", "c")
-	require.NoError(t, err)
+	// Setup
+	r.Client().HSet(testCtx, "test:hash3", "field1", "value1")
 
-	// LLen
-	length, err := client.LLen(testCtx, "test:list")
+	// HDel
+	n, err := r.HDel(testCtx, "test:hash3", "field1")
 	require.NoError(t, err)
-	assert.Equal(t, int64(3), length)
+	assert.Equal(t, int64(1), n)
 
-	// LRange
-	items, err := client.LRange(testCtx, "test:list", 0, -1)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"a", "b", "c"}, items)
-
-	// LPush
-	err = client.LPush(testCtx, "test:list", "x", "y")
-	require.NoError(t, err)
-
-	items, err = client.LRange(testCtx, "test:list", 0, -1)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"y", "x", "a", "b", "c"}, items)
-
-	// RPop
-	val, err := client.RPop(testCtx, "test:list")
-	require.NoError(t, err)
-	assert.Equal(t, "c", val)
-
-	// LPop
-	val, err = client.LPop(testCtx, "test:list")
-	require.NoError(t, err)
-	assert.Equal(t, "y", val)
-
-	client.Delete(testCtx, "test:list")
+	// Cleanup
+	r.Del(testCtx, "test:hash3")
 }
 
-func TestSetOperations(t *testing.T) {
+func TestDel(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
 
-	client := New("localhost:6379")
-	defer client.Close()
+	r := newTestClient(t)
+	defer r.Client().Close()
 
-	err := client.Ping(testCtx)
+	err := r.Ping(testCtx)
 	if err != nil {
 		t.Skip("Redis not available, skipping test")
 	}
 
-	// SAdd
-	err = client.SAdd(testCtx, "test:set", "a", "b", "c")
+	// Setup
+	r.Set(testCtx, "delkey", "delvalue", 10*time.Second)
+
+	// Del
+	n, err := r.Del(testCtx, "test:delkey")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), n)
+}
+
+func TestDelCompound(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	// Setup
+	r.Set(testCtx, "part1:part2", "value", 10*time.Second)
+
+	// DelCompound
+	n, err := r.DelCompound(testCtx, "part1", "part2")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), n)
+}
+
+func TestAddInSetGetSetMembers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	// AddInSet
+	err = r.AddInSet(testCtx, "test:set", "member1")
 	require.NoError(t, err)
 
-	// SMembers
-	members, err := client.SMembers(testCtx, "test:set")
-	require.NoError(t, err)
-	assert.Len(t, members, 3)
-
-	// SIsMember
-	isMember, err := client.SIsMember(testCtx, "test:set", "a")
-	require.NoError(t, err)
-	assert.True(t, isMember)
-
-	isMember, err = client.SIsMember(testCtx, "test:set", "x")
-	require.NoError(t, err)
-	assert.False(t, isMember)
-
-	// SRem
-	err = client.SRem(testCtx, "test:set", "a")
+	err = r.AddInSet(testCtx, "test:set", "member2")
 	require.NoError(t, err)
 
-	members, err = client.SMembers(testCtx, "test:set")
+	// GetSetMembers
+	members, err := r.GetSetMembers(testCtx, "test:set")
 	require.NoError(t, err)
 	assert.Len(t, members, 2)
+	assert.Contains(t, members, "member1")
+	assert.Contains(t, members, "member2")
 
-	client.Delete(testCtx, "test:set")
+	// Cleanup
+	r.Del(testCtx, "test:set")
 }
 
-func TestSortedSetOperations(t *testing.T) {
+func TestHIncrBy(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
 
-	client := New("localhost:6379")
-	defer client.Close()
+	r := newTestClient(t)
+	defer r.Client().Close()
 
-	err := client.Ping(testCtx)
+	err := r.Ping(testCtx)
 	if err != nil {
 		t.Skip("Redis not available, skipping test")
 	}
 
-	// ZAdd
-	err = client.ZAdd(testCtx, "test:zset",
-		redis.Z{Score: 1.0, Member: "a"},
-		redis.Z{Score: 2.0, Member: "b"},
-		redis.Z{Score: 3.0, Member: "c"},
-	)
-	require.NoError(t, err)
+	// Setup
+	r.Client().HSet(testCtx, "test:counter", "count", "0")
 
-	// ZRange
-	items, err := client.ZRange(testCtx, "test:zset", 0, -1)
+	// HIncrBy
+	n, err := r.HIncrBy(testCtx, "test:counter", "count", 5)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"a", "b", "c"}, items)
+	assert.Equal(t, int64(5), n)
 
-	// ZRangeByScore
-	items, err = client.ZRangeByScore(testCtx, "test:zset", "2", "3")
-	require.NoError(t, err)
-	assert.Equal(t, []string{"b", "c"}, items)
-
-	// ZRem
-	err = client.ZRem(testCtx, "test:zset", "a")
-	require.NoError(t, err)
-
-	items, err = client.ZRange(testCtx, "test:zset", 0, -1)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"b", "c"}, items)
-
-	client.Delete(testCtx, "test:zset")
+	// Cleanup
+	r.Del(testCtx, "test:counter")
 }
 
-func TestStats(t *testing.T) {
+func TestIncrBy(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
 
-	client := New("localhost:6379")
-	defer client.Close()
+	r := newTestClient(t)
+	defer r.Client().Close()
 
-	err := client.Ping(testCtx)
+	err := r.Ping(testCtx)
 	if err != nil {
 		t.Skip("Redis not available, skipping test")
 	}
 
-	stats := client.Stats()
-	assert.NotNil(t, stats)
-	assert.GreaterOrEqual(t, stats.Hits, uint32(0))
-	assert.GreaterOrEqual(t, stats.Misses, uint32(0))
+	// Setup
+	r.Client().Set(testCtx, "test:incrkey", "0", 0)
+
+	// IncrBy
+	n, err := r.IncrBy(testCtx, "test:incrkey", 10)
+	require.NoError(t, err)
+	assert.Equal(t, int64(10), n)
+
+	// Cleanup
+	r.Del(testCtx, "test:incrkey")
+}
+
+func TestExpire(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	// Setup
+	r.Set(testCtx, "expirekey", "value", 10*time.Second)
+
+	// Expire
+	ok, err := r.Expire(testCtx, "test:expirekey", 30*time.Second)
+	require.NoError(t, err)
+	assert.True(t, ok)
+
+	// Cleanup
+	r.Del(testCtx, "test:expirekey")
+}
+
+func TestHSetStructHGetStruct(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	type Data struct {
+		Value string `msgpack:"value"`
+	}
+
+	data := Data{Value: "test"}
+
+	// HSetStruct
+	err = r.HSetStruct(testCtx, "test:hstruct", "field1", data)
+	require.NoError(t, err)
+
+	// HGetStruct
+	var retrieved Data
+	err = r.HGetStruct(testCtx, "test:hstruct", "field1", &retrieved)
+	require.NoError(t, err)
+	assert.Equal(t, data.Value, retrieved.Value)
+
+	// Cleanup
+	r.Del(testCtx, "test:hstruct")
+}
+
+func TestGetEx(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	// Setup
+	r.Set(testCtx, "getexkey", "value", 10*time.Second)
+
+	// GetEx - applies prefix
+	val, err := r.GetEx(testCtx, "getexkey", 30*time.Second)
+	require.NoError(t, err)
+	assert.Equal(t, "value", val)
+
+	// Cleanup
+	r.Del(testCtx, "test:getexkey")
+}
+
+func TestGetCompound(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	// Setup
+	r.Set(testCtx, "key1:key2", "value", 10*time.Second)
+
+	// GetCompound
+	val, err := r.GetCompound(testCtx, "key1", "key2")
+	require.NoError(t, err)
+	assert.Equal(t, "value", val)
+
+	// Cleanup
+	r.Del(testCtx, "key1:key2")
+}
+
+func TestSetExCompound(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	// SetExCompound
+	err = r.SetExCompound(testCtx, "part1", "part2", "value", 10*time.Second)
+	require.NoError(t, err)
+
+	// Verify
+	val, err := r.Get(testCtx, "part1:part2")
+	require.NoError(t, err)
+	assert.Equal(t, "value", val)
+
+	// Cleanup
+	r.Del(testCtx, "part1:part2")
+}
+
+func TestSetBulk(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	keys := []string{"bulk1", "bulk2", "bulk3"}
+	values := []string{"val1", "val2", "val3"}
+
+	// SetBulk
+	errs := r.SetBulk(testCtx, keys, values, 10*time.Second)
+	for _, e := range errs {
+		assert.NoError(t, e)
+	}
+
+	// Cleanup
+	r.Del(testCtx, "bulk1")
+	r.Del(testCtx, "bulk2")
+	r.Del(testCtx, "bulk3")
+}
+
+func TestGetBulk(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	r := newTestClient(t)
+	defer r.Client().Close()
+
+	err := r.Ping(testCtx)
+	if err != nil {
+		t.Skip("Redis not available, skipping test")
+	}
+
+	// Setup
+	r.Client().Set(testCtx, "gb1", "val1", 0)
+	r.Client().Set(testCtx, "gb2", "val2", 0)
+
+	keys := []string{"gb1", "gb2", "gb3"}
+
+	// GetBulk
+	vals, errs := r.GetBulk(testCtx, keys)
+	assert.Len(t, vals, 3)
+	assert.Len(t, errs, 3)
+	assert.Equal(t, "val1", vals[0])
+	assert.Equal(t, "val2", vals[1])
+	assert.Equal(t, ErrKeyNotFound, errs[2])
+
+	// Cleanup
+	r.Del(testCtx, "gb1")
+	r.Del(testCtx, "gb2")
+}
+
+func TestErrKeyNotFound(t *testing.T) {
+	assert.Equal(t, redis.Nil, ErrKeyNotFound)
 }
