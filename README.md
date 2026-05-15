@@ -94,6 +94,24 @@ go get github.com/davidsugianto/go-pkgs/db
 
 [📖 Documentation](./db/README.md) | [💡 Example](./db/example/)
 
+#### `logs` - Unified Logging Package
+A unified logging layer built on top of the logger package with a simple, package-level API. Supports structured logging with fields, multiple log levels, and flexible configuration.
+
+```bash
+go get github.com/davidsugianto/go-pkgs/logs
+```
+
+[📖 Documentation](./logs/README.md) | [💡 Example](./logs/example/)
+
+#### `redislock` - Distributed Lock with Redis
+A distributed lock implementation using Redis and redsync. Provides mutual exclusion across multiple application instances with auto-extend support for long-running operations.
+
+```bash
+go get github.com/davidsugianto/go-pkgs/redislock
+```
+
+[📖 Documentation](./redislock/README.md) | [💡 Example](./redislock/example/)
+
 ### 🚧 Planned
 
 #### `httpserver`
@@ -135,6 +153,8 @@ cd go-pkgs
   - [x] Implement `logger` with OpenTelemetry integration and structured logging
   - [x] Implement `otel` with unified OpenTelemetry configuration for tracing, metrics, and logging
   - [x] Implement `db` connector with GORM, migrations, and OpenTelemetry support
+  - [x] Implement `logs` unified logging layer with package-level API
+  - [x] Implement `redislock` distributed lock with Redis
   - [ ] Implement `httpserver` with graceful shutdown and middleware support
   - [ ] Add `.env` file support to `config` package
   - [ ] Implement `workerpool` with job queue and concurrency control
@@ -151,6 +171,8 @@ cd go-pkgs
   - [x] Add usage examples for `logger` package
   - [x] Add usage examples for `otel` package
   - [x] Add usage examples for `db` package
+  - [x] Add usage examples for `logs` package
+  - [x] Add usage examples for `redislock` package
   - [ ] Provide a sample microservice using multiple packages
 
 - [x] **Testing & Quality**
@@ -163,6 +185,8 @@ cd go-pkgs
   - [x] Add unit tests for `logger` package
   - [x] Add unit tests for `otel` package
   - [x] Add unit tests for `db` package
+  - [x] Add unit tests for `logs` package
+  - [x] Add unit tests for `redislock` package
   - [ ] Add integration tests (Redis, DB, HTTP server)
   - [ ] Add CI pipeline with GitHub Actions (`go test ./...`, lint, vet)
   - [ ] Add Go Report Card and Coverage badge
@@ -183,6 +207,8 @@ cd go-pkgs
   - [x] Write README for `logger` package
   - [x] Write README for `otel` package
   - [x] Write README for `db` package
+  - [x] Write README for `logs` package
+  - [x] Write README for `redislock` package
   - [ ] Write package-level docs with `godoc` examples
   - [ ] Add contribution guide (`CONTRIBUTING.md`)
   - [ ] Add code of conduct (`CODE_OF_CONDUCT.md`)
