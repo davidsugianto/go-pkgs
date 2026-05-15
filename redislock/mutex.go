@@ -42,7 +42,7 @@ type mutex struct {
 }
 
 func (rw *redsyncWrap) NewMutexW(mutexOpt MutexOpt) (IMutexDistLock, error) {
-	if rw.rs == nil {
+	if !rw.hasClients {
 		return nil, ErrClientEmpty
 	}
 

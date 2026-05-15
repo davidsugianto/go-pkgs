@@ -12,7 +12,8 @@ type RedisDriver struct {
 }
 
 type redsyncWrap struct {
-	rs *redsynclib.Redsync
+	rs          *redsynclib.Redsync
+	hasClients  bool
 }
 
 type IMutex interface {
@@ -23,10 +24,18 @@ type IMutex interface {
 func New(opt RedisDriver) IMutex {
 	var rs []redis.Pool
 	for _, val := range opt.GoRedisClient {
-		rs = append(rs, goredis.NewPool(val))
+		if val != nil {
+			rs = append(rs, goredis.NewPool(val))
+		}
 	}
 
 	return &redsyncWrap{
-		rs: redsynclib.New(rs...),
+		rs:         redsynclib.New(rs...),
+		hasClients: len(rs) > 0,
 	}
+}
+
+// GetRedsync returns the underlying redsync instance
+func (rw *redsyncWrap) GetRedsync() *redsynclib.Redsync {
+	return rw.rs
 }
